@@ -107,7 +107,7 @@ class TripViewModel @Inject constructor(
         val packed = t.copy(
             packedItemIds = plan.packed.map { it.id },
             days = plan.dayOutfits.map { TripDay(it.day.epochDay, it.day.scenario.id, it.outfit?.pieces ?: emptyList()) },
-            travelDayItemIds = plan.travel.map { it.id },
+            travelDayItemIds = plan.travelDay.map { it.id },
         )
         plans.saveTrip(packed)
         _s.update { it.copy(trip = packed, packing = false) }

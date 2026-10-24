@@ -17,6 +17,7 @@ import io.github.aristidisg.ensemble.model.Scenario
 import io.github.aristidisg.ensemble.model.Trip
 import io.github.aristidisg.ensemble.model.WindowWeather
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -56,7 +57,7 @@ class PlanViewModel @Inject constructor(
         refresh(checkReplan = true)
     }
 
-    fun refresh(checkReplan: Boolean = false) = viewModelScope.launch {
+    fun refresh(checkReplan: Boolean = false): Job = viewModelScope.launch {
         val today = time.today()
         val stored = plans.allPlans().associateBy { it.epochDay }
         val days = (0 until 7).map { d ->
@@ -104,7 +105,7 @@ class PlanViewModel @Inject constructor(
         refresh()
     }
 
-    fun autoPlan() = viewModelScope.launch {
+    fun autoPlan(): Job = viewModelScope.launch {
         _s.update { it.copy(planning = true) }
         val s = _s.value
         val base = studio.context(time.today(), s.days.firstOrNull()?.scenario ?: studio.scenario("casual"))

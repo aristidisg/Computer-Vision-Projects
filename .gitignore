@@ -1,22 +1,10 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.env
-venv/
-.venv/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Model weights
-*.pth
-*.pt
-
-# Datasets
-data/
-datasets/
-
-# OS
+*.iml
+.gradle/
+/local.properties
+.idea/
 .DS_Store
-Thumbs.db
+build/
+/captures
+.externalNativeBuild
+.cxx
+.kotlin/

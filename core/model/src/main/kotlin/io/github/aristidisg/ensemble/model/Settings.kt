@@ -111,6 +111,14 @@ data class Settings(
     val forgottenLove: Boolean = true,
     val weeklyTemplate: Map<Int, String> = DEFAULT_WEEK,
     val usualWeekday: String = "mixed",
+    /** Soft "reset all learning" starts a new epoch; older events are kept but ignored. */
+    val learningEpoch: Int = 0,
+    val notificationsAsked: Boolean = false,
+    /** Folder (SAF tree URI) the weekly automatic backup is written to, e.g. a Google Drive folder. */
+    val autoBackupUri: String? = null,
+    val autoBackupLastMillis: Long = 0,
+    /** Manual weather per day ("set temperature by hand"), keyed by epoch day. */
+    val manualWeather: Map<String, WindowWeather> = emptyMap(),
 ) {
     companion object {
         val DEFAULT_STYLE_WEIGHTS: Map<StyleTag, Double> = StyleTag.entries.associateWith {

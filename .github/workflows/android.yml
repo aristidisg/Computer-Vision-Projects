@@ -1,0 +1,68 @@
+name: Android build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Engine tests (pure Kotlin)
+        run: ./gradlew :engine:test --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Lint
+        run: ./gradlew :app:lintRelease --stacktrace
+
+      - name: Release APK (R8, signed with the app's fixed key)
+        run: ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ensemble-apk
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          if-no-files-found: ignore
+
+      # Rolling releases you can open on the phone: "latest" from main, "preview" from any other branch.
+      - name: Publish to GitHub Releases
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then TAG=latest; FLAGS="--latest"; TITLE="Ensemble (latest)"; else TAG=preview; FLAGS="--prerelease"; TITLE="Ensemble preview (${GITHUB_REF_NAME})"; fi
+          cp app/build/outputs/apk/release/app-release.apk "ensemble.apk"
+          gh release delete "$TAG" --cleanup-tag --yes || true
+          gh release create "$TAG" ensemble.apk $FLAGS --target "$GITHUB_SHA" --title "$TITLE" \
+            --notes "Build ${GITHUB_RUN_NUMBER} from ${GITHUB_REF_NAME} (${GITHUB_SHA::7}). Download ensemble.apk on your phone and open it to install or update. Your wardrobe is kept across updates."

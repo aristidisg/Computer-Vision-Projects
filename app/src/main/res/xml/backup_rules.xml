@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto Backup (API 30 and lower): database, settings and photos. -->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="file" path="." />
+    <exclude domain="file" path="import-staging/" />
+</full-backup-content>

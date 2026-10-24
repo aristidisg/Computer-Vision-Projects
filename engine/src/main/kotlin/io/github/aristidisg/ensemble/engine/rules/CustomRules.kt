@@ -28,8 +28,8 @@ object CustomRules {
         if (s.scenarioIds.isNotEmpty() && ctx.scenario.id !in s.scenarioIds) return false
         if (s.weekdays.isNotEmpty() && ctx.weekday !in s.weekdays) return false
         val t = ctx.weather.feelsMid
-        if (s.minTemp != null && t < s.minTemp) return false
-        if (s.maxTemp != null && t > s.maxTemp) return false
+        s.minTemp?.let { if (t < it) return false }
+        s.maxTemp?.let { if (t > it) return false }
         return true
     }
 

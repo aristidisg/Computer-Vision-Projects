@@ -91,6 +91,10 @@ data class DayPlan(
     val pieces: List<OutfitPiece> = emptyList(),
     val locked: Boolean = false,
     val note: String = "",
+    /** Forecast the plan was made with; a 4 °C move or a rain flip triggers a replan. */
+    val plannedFeels: Double? = null,
+    val plannedRain: Boolean = false,
+    val score: Double? = null,
 ) {
     val outfitSignature: String? get() = if (pieces.isEmpty()) null else Outfit.signatureOf(pieces.map { it.itemId })
 }

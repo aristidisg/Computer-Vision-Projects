@@ -84,9 +84,13 @@ class ItemDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val _d = MutableStateFlow<ItemDetail?>(null)
     val detail = _d.asStateFlow()
+    private val _gone = MutableStateFlow(false)
+    /** True once the piece no longer exists (deleted from the editor): the screen closes. */
+    val gone = _gone.asStateFlow()
 
     fun load(id: String) = viewModelScope.launch {
-        val item = wardrobe.get(id) ?: return@launch
+        val item = wardrobe.get(id)
+        if (item == null) { _gone.value = true; return@launch }
         val logs = wear.all().filter { l -> l.pieces.any { it.itemId == id } }
         val day = time.today()
         val scenario = studio.scenario(studio.defaultScenarioId(day))
@@ -115,6 +119,8 @@ class ItemDetailViewModel @Inject constructor(
 fun ItemDetailScreen(id: String, nav: NavHostController, vm: ItemDetailViewModel = hiltViewModel()) {
     LaunchedEffect(id) { vm.load(id) }
     val d by vm.detail.collectAsStateWithLifecycle()
+    val gone by vm.gone.collectAsStateWithLifecycle()
+    LaunchedEffect(gone) { if (gone) nav.popBackStack() }
     Column {
         BackBar(d?.item?.name ?: "", onBack = { nav.popBackStack() }) {
             IconButton(onClick = { nav.navigate(ItemEditorRoute(itemId = id)) }) { Icon(Icons.Outlined.Edit, stringResource(R.string.edit)) }

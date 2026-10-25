@@ -1,5 +1,6 @@
 package io.github.aristidisg.ensemble.ui.wardrobe
 
+import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,11 +40,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.aristidisg.ensemble.R
 import io.github.aristidisg.ensemble.data.files.ImageStore
 import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
+import io.github.aristidisg.ensemble.engine.ItemFactory
 import io.github.aristidisg.ensemble.engine.LabelCheck
 import io.github.aristidisg.ensemble.engine.LabelIssue
 import io.github.aristidisg.ensemble.engine.LabelSuggestion
@@ -79,12 +82,16 @@ class LabelCheckViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val images: ImageStore,
     private val time: TimeSource,
+    @ApplicationContext private val app: Context,
 ) : ViewModel() {
     private val photoHints = MutableStateFlow<Map<String, Subcategory>>(emptyMap())
-    private val dismissed = MutableStateFlow<Set<String>>(emptySet())
     private val scanning = MutableStateFlow(false)
+    private val _saved = MutableStateFlow<String?>(null)
+    /** "Saved: X is now a Y", shown after every fix. */
+    val saved = _saved.asStateFlow()
 
-    val state = combine(wardrobe.items, photoHints, dismissed, scanning) { items, hints, gone, scan ->
+    val state = combine(wardrobe.items, photoHints, settings.settings, scanning) { items, hints, st, scan ->
+        val gone = st.labelsConfirmed
         LabelCheckState(
             LabelCheck.check(items, hints).filter { it.item.id !in gone },
             items.filter { it.subcategory.group == CategoryGroup.OUTERWEAR || it.subcategory.isMidLayer() }
@@ -112,19 +119,31 @@ class LabelCheckViewModel @Inject constructor(
     }
 
     fun apply(s: LabelSuggestion, sub: Subcategory? = s.suggested) = viewModelScope.launch {
-        LabelCheck.fix(s, sub)?.let { wardrobe.upsert(it, time.nowMillis()) }
+        // Fix the stored piece as it is now, not the copy the list was built from.
+        val current = wardrobe.get(s.item.id) ?: return@launch
+        LabelCheck.fix(s.copy(item = current), sub)?.let { save(current, it) }
     }
 
     fun move(item: Item, sub: Subcategory) = viewModelScope.launch {
-        if (sub != item.subcategory) wardrobe.upsert(io.github.aristidisg.ensemble.engine.ItemFactory.recategorize(item, sub), time.nowMillis())
+        val current = wardrobe.get(item.id) ?: return@launch
+        if (sub != current.subcategory) save(current, ItemFactory.recategorize(current, sub))
     }
 
-    fun dismiss(id: String) { dismissed.value = dismissed.value + id }
+    private suspend fun save(before: Item, after: Item) {
+        wardrobe.upsert(after, time.nowMillis())
+        _saved.value = app.getString(R.string.label_saved, before.name, after.subcategory.label.lowercase())
+    }
+
+    fun clearSaved() { _saved.value = null }
+
+    /** "It's right": never flagged again (kept in settings). */
+    fun dismiss(id: String) = viewModelScope.launch { settings.update { it.copy(labelsConfirmed = it.labelsConfirmed + id) } }
 }
 
 @Composable
 fun LabelCheckScreen(nav: NavHostController, vm: LabelCheckViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val saved by vm.saved.collectAsStateWithLifecycle()
     var picking by remember { mutableStateOf<Item?>(null) }
     var pickGroup by remember { mutableStateOf<CategoryGroup?>(null) }
     var pickFor by remember { mutableStateOf<LabelSuggestion?>(null) }
@@ -133,6 +152,12 @@ fun LabelCheckScreen(nav: NavHostController, vm: LabelCheckViewModel = hiltViewM
         LazyColumn(Modifier.padding(horizontal = 16.dp)) {
             item {
                 Text(stringResource(R.string.check_labels_body), style = MaterialTheme.typography.bodyMedium)
+                saved?.let { msg ->
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("✓ $msg", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                        TextButton(onClick = vm::clearSaved) { Text(stringResource(R.string.ok)) }
+                    }
+                }
                 if (s.scanning) {
                     Text(stringResource(R.string.checking_photos), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                     LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 4.dp))
@@ -194,17 +219,19 @@ private fun SuggestionRow(s: LabelSuggestion, onFix: () -> Unit, onChoose: () ->
 }
 
 @Composable
-private fun CategoryDialog(item: Item, group: CategoryGroup, onGroup: (CategoryGroup) -> Unit, onDismiss: () -> Unit, onPick: (Subcategory) -> Unit) {
+private fun CategoryDialog(item: Item, group: CategoryGroup, onGroup: (CategoryGroup) -> Unit, onDismiss: () -> Unit, onSave: (Subcategory) -> Unit) {
+    var choice by remember(item.id) { mutableStateOf(item.subcategory) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.now_label, item.subcategory.label, choice.label), style = MaterialTheme.typography.bodyMedium)
                 io.github.aristidisg.ensemble.ui.common.ChoiceChips(listOf(CategoryGroup.TOPS, CategoryGroup.OUTERWEAR), setOf(group), { it.label }, onGroup)
-                SubcategoryChips(group, item.subcategory, onPick)
+                SubcategoryChips(group, choice) { choice = it }
             }
         },
-        confirmButton = {},
+        confirmButton = { Button(onClick = { onSave(choice) }) { Text(stringResource(R.string.save)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

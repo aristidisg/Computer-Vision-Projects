@@ -22,13 +22,20 @@ object ColorEdits {
     }
 
     fun setShare(item: Item, index: Int, share: Double): Item =
-        apply(item, item.colors.mapIndexed { i, c -> if (i == index) c.copy(share = share.coerceIn(0.01, 1.0)) else c })
+        if (item.colors.size <= 1 || index !in item.colors.indices) item else {
+            // The dragged color takes its share; the others split the rest in their old proportions.
+            val v = share.coerceIn(0.01, 0.99)
+            val rest = item.colors.filterIndexed { i, _ -> i != index }.sumOf { it.share }.takeIf { it > 0 } ?: 1.0
+            apply(item, item.colors.mapIndexed { i, c -> if (i == index) c.copy(share = v) else c.copy(share = c.share / rest * (1 - v)) })
+        }
 
     /** Adds a color; null when the code is invalid or the piece already has [MAX_COLORS]. */
     fun add(item: Item, input: String, share: Double = SECONDARY_SHARE): Item? {
         val hex = ColorScience.normalizeHex(input) ?: return null
         if (item.colors.size >= MAX_COLORS) return null
-        return apply(item, item.colors + KMeans.itemColor(hex, share, ColorRole.SECONDARY))
+        val v = share.coerceIn(0.01, 0.99)
+        // The new color takes its share out of the existing ones, so shares still add up to 100 %.
+        return apply(item, item.colors.map { it.copy(share = it.share * (1 - v)) } + KMeans.itemColor(hex, v, ColorRole.SECONDARY))
     }
 
     /** Removes a color; the last one can't be removed. */
@@ -52,11 +59,15 @@ object ColorEdits {
      * changed those by hand.
      */
     fun apply(item: Item, colors: List<ItemColor>): Item {
-        val roled = withRoles(colors)
+        // A piece always keeps at least one color (an empty cutout must not erase them).
+        if (colors.isEmpty()) return item
+        val total = colors.sumOf { it.share }.takeIf { it > 0 } ?: 1.0
+        val shares = colors.map { it.copy(share = it.share / total) }
+        val roled = withRoles(shares)
         val next = item.copy(colors = roled)
         val name = if (item.name == ItemFactory.autoName(item.subcategory, item.colors)) ItemFactory.autoName(item.subcategory, roled) else item.name
         val formality = if (item.formality == ItemFactory.formality(item)) ItemFactory.formality(next) else item.formality
-        return next.copy(name = name, formality = formality)
+        return ItemFactory.normalizeColors(next.copy(name = name, formality = formality))
     }
 
     /** "Same as…": every tag from [source], keeping [target]'s identity, colors, photos and history. */
@@ -73,6 +84,6 @@ object ColorEdits {
             updatedAtMillis = target.updatedAtMillis,
         )
         val formality = if (source.formality == ItemFactory.formality(source)) ItemFactory.formality(copied) else source.formality
-        return copied.copy(name = ItemFactory.autoName(copied.subcategory, copied.colors), formality = formality)
+        return ItemFactory.normalizeColors(copied).let { it.copy(name = ItemFactory.autoName(it.subcategory, it.colors), formality = formality) }
     }
 }

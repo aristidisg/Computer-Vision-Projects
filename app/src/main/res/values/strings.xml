@@ -454,4 +454,9 @@
     <string name="choose">Choose…</string>
     <string name="looks_right">It\'s right</string>
     <string name="change">Change</string>
+    <string name="label_saved">Saved: %1$s is now filed as %2$s.</string>
+    <string name="ok">OK</string>
+    <string name="now_label">Now: %1$s → %2$s</string>
+    <string name="planned_for">Planned for %1$s</string>
+    <string name="no_alternatives">Nothing else in your wardrobe fits this slot here.</string>
 </resources>

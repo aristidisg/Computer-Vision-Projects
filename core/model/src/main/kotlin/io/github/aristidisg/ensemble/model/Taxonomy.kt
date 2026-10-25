@@ -122,7 +122,7 @@ enum class ColorFamily(val label: String) {
     WHITE("White"), ECRU("Ecru / cream"), STONE("Stone / beige"), KHAKI("Khaki"), TAUPE("Taupe"),
     CAMEL("Camel / tan"), BROWN("Brown"), CHOCOLATE("Chocolate"), OLIVE("Olive"), NAVY("Navy"),
     DARK_DENIM("Dark denim"), MID_DENIM("Mid denim"), LIGHT_DENIM("Light denim"),
-    LIGHT_BLUE("Light blue"), COBALT("Cobalt"), TEAL("Teal"), FOREST_GREEN("Forest green"),
+    LIGHT_BLUE("Light blue"), BLUE("Blue"), COBALT("Cobalt"), TEAL("Teal"), FOREST_GREEN("Forest green"),
     SAGE("Sage"), KELLY_GREEN("Kelly green"), MINT("Mint"), BURGUNDY("Burgundy"), RED("Red"),
     RUST("Rust / terracotta"), ORANGE("Orange"), MUSTARD("Mustard"), YELLOW("Yellow"),
     DUSTY_PINK("Dusty pink"), PINK("Pink"), LAVENDER("Lavender"), PLUM("Plum"),

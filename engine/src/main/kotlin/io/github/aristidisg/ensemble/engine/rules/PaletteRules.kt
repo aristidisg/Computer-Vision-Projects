@@ -80,7 +80,7 @@ object PaletteRules {
         return when {
             avoid.isNotEmpty() -> res("C12", G, s, w, Explain.PERSONAL_COLOR_AVOID, "color" to avoid.first().info.family.label)
             pc.season != null && s >= 0.7 -> res("C12", G, s, w, Explain.PERSONAL_COLOR_FIT,
-                "color" to cs.maxBy { it.area }.info.family.label, "season" to pc.season!!.label)
+                "color" to cs.maxBy { it.area }.info.family.label, "season" to (pc.season?.label ?: ""))
             else -> res("C12", G, s, w)
         }
     }

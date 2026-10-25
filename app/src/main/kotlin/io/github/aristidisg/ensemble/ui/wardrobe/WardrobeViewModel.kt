@@ -129,7 +129,8 @@ class WardrobeViewModel @Inject constructor(
         val (_, plan) = _swap.value ?: return@launch
         _swap.value = null
         val now = time.nowMillis()
-        plan.store.forEach { wardrobe.upsert(it.copy(status = ItemStatus.STORED), now) }
-        plan.restore.forEach { wardrobe.upsert(it.copy(status = ItemStatus.AVAILABLE), now) }
+        // Re-read each piece so an edit made while the dialog was open isn't overwritten.
+        val target = plan.store.associate { it.id to ItemStatus.STORED } + plan.restore.associate { it.id to ItemStatus.AVAILABLE }
+        wardrobe.all().filter { it.id in target }.forEach { wardrobe.upsert(it.copy(status = target.getValue(it.id)), now) }
     }
 }

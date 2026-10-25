@@ -33,11 +33,14 @@ data class OutfitState(
     val epochDay: Long = 0,
     val scored: ScoredOutfit? = null,
     val items: Map<String, Item> = emptyMap(),
-    val alternatives: List<ScoredItem> = emptyList(),
+    /** Swap candidates for the open slot; null while they load. */
+    val alternatives: List<ScoredItem>? = null,
     val cooldown: Long? = null,
     val saved: Boolean = false,
     /** Composer: the best single swap and how much it adds. */
     val fix: Pair<ScoredItem, Slot>? = null,
+    /** Day this outfit was just planned for (confirmation line). */
+    val plannedFor: Long? = null,
 )
 
 /** Shared by outfit detail and the composer: scores any set of pieces live. */
@@ -80,11 +83,13 @@ class OutfitViewModel @Inject constructor(
 
     fun loadAlternatives(slot: Slot) = viewModelScope.launch {
         val c = ctx ?: return@launch
+        _s.update { it.copy(alternatives = null) }
         val alts = withContext(Dispatchers.Default) { studio.engine.alternatives(_s.value.pieces, slot, c, c.items.values.toList(), 12) }
         _s.update { it.copy(alternatives = alts) }
     }
 
-    fun swap(slot: Slot, itemId: String) = rescore(_s.value.pieces.filter { it.slot != slot } + OutfitPiece(itemId, slot))
+    /** Puts a piece in a slot; a piece can only be in one slot, so it leaves any other one. */
+    fun swap(slot: Slot, itemId: String) = rescore(_s.value.pieces.filter { it.slot != slot && it.itemId != itemId } + OutfitPiece(itemId, slot))
 
     fun remove(slot: Slot) = rescore(_s.value.pieces.filter { it.slot != slot })
 
@@ -109,10 +114,16 @@ class OutfitViewModel @Inject constructor(
 
     fun wear(done: () -> Unit) = viewModelScope.launch { val c = ctx ?: return@launch; recorder.wear(_s.value.pieces, c); done() }
 
+    /** Save, or un-save when already saved (it leaves Saved; its history stays). */
     fun save() = viewModelScope.launch {
         val c = ctx ?: return@launch
-        recorder.save(_s.value.pieces, c)
-        _s.update { it.copy(saved = true) }
+        if (_s.value.saved) {
+            _s.value.scored?.let { o -> outfits.bySignature(o.signature)?.let { outfits.save(it.copy(liked = false)) } }
+            _s.update { it.copy(saved = false) }
+        } else {
+            recorder.save(_s.value.pieces, c)
+            _s.update { it.copy(saved = true) }
+        }
     }
 
     fun saveComposed(done: () -> Unit) = viewModelScope.launch {
@@ -126,6 +137,7 @@ class OutfitViewModel @Inject constructor(
     fun planFor(epochDay: Long) = viewModelScope.launch {
         val s = _s.value
         plans.savePlan(DayPlan(epochDay, s.scenario?.id ?: "casual", s.pieces, locked = true))
+        _s.update { it.copy(plannedFor = epochDay) }
     }
 
     fun setCooldown(days: Int?) = viewModelScope.launch {

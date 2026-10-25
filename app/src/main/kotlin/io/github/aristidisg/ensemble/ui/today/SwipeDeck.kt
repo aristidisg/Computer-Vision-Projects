@@ -105,8 +105,11 @@ private fun SwipeCard(card: ScoredOutfit, widthPx: Float, heightPx: Float, onSwi
             }
             .pointerInput(card.signature) {
                 val tracker = VelocityTracker()
+                // Positions move with the card (it is translated), so velocity is tracked on the
+                // accumulated drag instead; otherwise a quick flick never counts as a fling.
+                var dragged = Offset.Zero
                 detectDragGestures(
-                    onDragStart = { tracker.resetTracking() },
+                    onDragStart = { tracker.resetTracking(); dragged = Offset.Zero },
                     onDragEnd = {
                         val v = tracker.calculateVelocity()
                         val cur = offset.value
@@ -120,7 +123,8 @@ private fun SwipeCard(card: ScoredOutfit, widthPx: Float, heightPx: Float, onSwi
                     onDragCancel = { scope.launch { offset.animateTo(Offset.Zero, spring()) } },
                 ) { change, drag ->
                     change.consume()
-                    tracker.addPosition(change.uptimeMillis, change.position)
+                    dragged += drag
+                    tracker.addPosition(change.uptimeMillis, dragged)
                     scope.launch { offset.snapTo(offset.value + drag) }
                 }
             },

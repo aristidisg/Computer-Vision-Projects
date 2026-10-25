@@ -36,6 +36,8 @@ data class DayWeather(val window: WindowWeather, val fromForecast: Boolean, val 
 
 /** Recent decks looked back on for rotation: a piece shown in all of them gives way most. */
 private const val EXPOSURE_DECKS = 5
+/** Deck logs read back; the table keeps the latest 60. */
+private const val DECK_LOG_SIZE = 60
 
 /**
  * Builds engine contexts from everything stored on the phone and runs the engine off the main
@@ -87,8 +89,13 @@ class Studio @Inject constructor(
             val prefs = PreferenceSnapshot.of(stats, scenario.id, EngineContext.seasonOf(epochDay), epochDay, cfg, s.trustMyTaste)
             val saved = outfits.all()
             val soon = plans.allPlans().filter { it.epochDay in (epochDay + 1)..(epochDay + 3) }.flatMap { p -> p.pieces.map { it.itemId } }.toSet()
-            val decks = db.cache().recentDecks(EXPOSURE_DECKS).map { DeckLog.decode(it.json) }
-            val recent = decks.take(3).flatten().map { it.signature }.toSet()
+            val logged = db.cache().recentDecks(DECK_LOG_SIZE)
+            val recent = logged.filter { it.epochDay < epochDay }.take(3).flatMap { DeckLog.decode(it.json) }.map { it.signature }.toSet()
+            // Rotation looks at earlier days only (all decks of a day count as one), so the deck
+            // stays the same while you look at it today and changes from one day to the next.
+            val decks = logged.filter { it.epochDay < epochDay }.groupBy { it.epochDay }.entries
+                .sortedByDescending { it.key }.take(EXPOSURE_DECKS)
+                .map { (_, ds) -> ds.flatMap { DeckLog.decode(it.json) } }
             EngineContext(
                 scenario = scenario,
                 weather = weatherOverride ?: dayWeather(epochDay, scenario, s).window,

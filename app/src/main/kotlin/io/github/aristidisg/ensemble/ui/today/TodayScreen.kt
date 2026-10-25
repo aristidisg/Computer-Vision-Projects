@@ -132,7 +132,7 @@ fun TodayScreen(nav: NavHostController, vm: TodayViewModel = hiltViewModel()) {
                 Spacer(Modifier.size(48.dp))
             }
         }
-        WhyNotBar(s.whyNotFor != null, onPick = { vm.whyNot(it) }, onSkip = vm::dismissWhyNot, Modifier.align(Alignment.BottomCenter))
+        WhyNotBar(s.whyNotFor?.signature, onPick = { vm.whyNot(it) }, onSkip = vm::dismissWhyNot, Modifier.align(Alignment.BottomCenter))
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter))
     }
 
@@ -177,8 +177,10 @@ private fun EndOfDeck(vm: TodayViewModel) {
 
 /** "Why not?" chips slide up for 4 seconds after a No; skippable. */
 @Composable
-private fun WhyNotBar(visible: Boolean, onPick: (WhyNot) -> Unit, onSkip: () -> Unit, modifier: Modifier) {
-    LaunchedEffect(visible) { if (visible) { delay(4000); onSkip() } }
+private fun WhyNotBar(card: String?, onPick: (WhyNot) -> Unit, onSkip: () -> Unit, modifier: Modifier) {
+    val visible = card != null
+    // Keyed by card: each No gets its own 4 seconds, even when the bar was already showing.
+    LaunchedEffect(card) { if (card != null) { delay(4000); onSkip() } }
     AnimatedVisibility(visible, modifier, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
         androidx.compose.material3.Surface(tonalElevation = 6.dp, shadowElevation = 6.dp, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {

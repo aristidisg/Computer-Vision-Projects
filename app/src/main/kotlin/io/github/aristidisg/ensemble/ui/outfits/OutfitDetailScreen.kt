@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -95,6 +96,10 @@ fun OutfitDetailScreen(route: OutfitDetailRoute, nav: NavHostController, vm: Out
                 OutlinedButton(onClick = { planPicker = true }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.plan_for)) }
                 OutlinedButton(onClick = { vm.neverAgain { nav.popBackStack() } }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.never_again)) }
             }
+            s.plannedFor?.let { d ->
+                Text("✓ " + stringResource(R.string.planned_for, java.time.LocalDate.ofEpochDay(d).format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM))),
+                    color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+            }
             TextButton(onClick = { debug = !debug }) { Text(stringResource(R.string.rule_scores)) }
             if (debug) {
                 o.groupScores.forEach { (g, v) -> Text("${g.label}: ${"%.2f".format(v)}", style = MaterialTheme.typography.labelLarge) }
@@ -111,7 +116,10 @@ fun OutfitDetailScreen(route: OutfitDetailRoute, nav: NavHostController, vm: Out
             title = { Text(stringResource(R.string.swap_title, slot.label.lowercase())) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    s.alternatives.forEach { a ->
+                    val alts = s.alternatives
+                    if (alts == null) CircularProgressIndicator()
+                    else if (alts.isEmpty()) Text(stringResource(R.string.no_alternatives))
+                    alts.orEmpty().forEach { a ->
                         Row(Modifier.fillMaxWidth().clickable { vm.swap(slot, a.item.id); swapSlot = null }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             ItemArt(a.item, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(LocalEnsembleColors.current.backdrop).padding(4.dp))
                             Text(a.item.name, Modifier.weight(1f).padding(start = 8.dp))

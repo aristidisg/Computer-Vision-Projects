@@ -24,11 +24,11 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val payload = intent.getStringExtra(EXTRA_PAYLOAD) ?: return
         val parts = payload.split(';')
         if (parts.size < 3) return
+        val day = parts[1].toLongOrNull() ?: return
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             try {
                 val sc = studio.scenario(parts[0])
-                val day = parts[1].toLong()
                 recorder.wear(PiecesArg.decode(parts[2]), studio.context(day, sc))
                 Notifications.cancel(context, Notifications.ID_MORNING)
             } finally {

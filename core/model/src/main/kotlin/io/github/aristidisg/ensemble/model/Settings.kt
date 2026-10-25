@@ -139,6 +139,10 @@ data class Settings(
      * teaches taste. Off: neither, and past saves stop counting.
      */
     val savedOutfitsInfluence: Boolean = true,
+    /** Last color-naming version applied to the stored wardrobe (see ItemFactory.COLOR_NAMES_VERSION). */
+    val colorNamesVersion: Int = 0,
+    /** Pieces the user confirmed are labeled right ("It's right" in Check labels). */
+    val labelsConfirmed: Set<String> = emptySet(),
     /** Pieces to buy, usually added from the gap finder. */
     val shoppingList: List<ShoppingEntry> = emptyList(),
 ) {

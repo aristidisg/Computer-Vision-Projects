@@ -102,5 +102,5 @@ interface CacheDao {
     @Upsert suspend fun saveWeather(e: WeatherCacheEntity)
     @Query("SELECT * FROM deck_log ORDER BY id DESC LIMIT :n") suspend fun recentDecks(n: Int): List<DeckLogEntity>
     @Insert suspend fun logDeck(e: DeckLogEntity)
-    @Query("DELETE FROM deck_log WHERE id NOT IN (SELECT id FROM deck_log ORDER BY id DESC LIMIT 20)") suspend fun trimDecks()
+    @Query("DELETE FROM deck_log WHERE id NOT IN (SELECT id FROM deck_log ORDER BY id DESC LIMIT 60)") suspend fun trimDecks()
 }

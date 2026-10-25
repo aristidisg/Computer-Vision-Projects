@@ -145,8 +145,16 @@ object ColorScience {
      * colors keep their hue: a dark brown stays chocolate instead of drifting to navy. The exact
      * color, not the family, is what the color rules measure.
      */
-    fun nearestFamily(lab: Lab): ColorFamily =
-        ColorTables.families.minBy { familyDistance(lab, it.lab) }.family
+    fun nearestFamily(lab: Lab, denim: Boolean = true): ColorFamily =
+        ColorTables.families.filter { f ->
+            (denim || !f.family.isDenim) &&
+                // A visibly tinted color is never pure black, grey or white (deep navy isn't black).
+                (lab.chroma < TINTED || f.lab.chroma >= ACHROMATIC)
+        }.minBy { familyDistance(lab, it.lab) }.family
+
+    /** Chroma from which a color reads as tinted, and below which a family is achromatic. */
+    const val TINTED = 0.03
+    const val ACHROMATIC = 0.015
 
     fun familyDistance(x: Lab, y: Lab): Double {
         val dl = x.l - y.l; val da = 2 * (x.a - y.a); val db = 2 * (x.b - y.b)

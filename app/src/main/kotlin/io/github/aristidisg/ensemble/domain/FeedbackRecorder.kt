@@ -27,7 +27,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** What one user action wrote, so Undo can take it back. */
-data class Recorded(val eventId: String?, val wearLogId: String? = null, val laundryItems: List<String> = emptyList())
+data class Recorded(
+    val eventId: String?,
+    val wearLogId: String? = null,
+    val laundryItems: List<String> = emptyList(),
+    /** The saved outfit as it was before (null: it was created by this action and is removed on undo). */
+    val outfitBefore: Outfit? = null,
+    val outfitId: String? = null,
+)
 
 /** Turns user actions into feedback events, wear logs, laundry counts and saved outfits. */
 @Singleton
@@ -81,7 +88,7 @@ class FeedbackRecorder @Inject constructor(
     suspend fun wear(pieces: List<OutfitPiece>, ctx: EngineContext): Recorded {
         val e = event(FeedbackType.SWIPE_UP_WEAR, pieces, ctx)
         feedback.record(e, cfg())
-        val log = WearLog(UUID.randomUUID().toString(), ctx.epochDay, e.outfitSignature!!, pieces, ctx.scenario.id, ctx.weather)
+        val log = WearLog(UUID.randomUUID().toString(), ctx.epochDay, Outfit.signatureOf(pieces.map { it.itemId }), pieces, ctx.scenario.id, ctx.weather)
         wear.log(log)
         val auto = settings.current().autoLaundry
         val moved = mutableListOf<String>()
@@ -98,9 +105,10 @@ class FeedbackRecorder @Inject constructor(
     suspend fun save(pieces: List<OutfitPiece>, ctx: EngineContext, source: OutfitSource = OutfitSource.GENERATED, name: String = ""): Recorded {
         val sig = Outfit.signatureOf(pieces.map { it.itemId })
         val existing = outfits.bySignature(sig)
-        outfits.save((existing ?: Outfit(UUID.randomUUID().toString(), pieces, source, name, ctx.scenario.id, createdAtMillis = time.nowMillis())).copy(liked = true))
+        val saved = (existing ?: Outfit(UUID.randomUUID().toString(), pieces, source, name, ctx.scenario.id, createdAtMillis = time.nowMillis())).copy(liked = true)
+        outfits.save(saved)
         val type = if (source == OutfitSource.COMPOSED) FeedbackType.COMPOSED else FeedbackType.SAVE
-        return record(event(type, pieces, ctx))
+        return record(event(type, pieces, ctx)).copy(outfitBefore = existing, outfitId = saved.id)
     }
 
     suspend fun pieceThumb(itemId: String, up: Boolean, pieces: List<OutfitPiece>, ctx: EngineContext): Recorded {
@@ -111,9 +119,10 @@ class FeedbackRecorder @Inject constructor(
 
     suspend fun neverAgain(pieces: List<OutfitPiece>, ctx: EngineContext): Recorded {
         val sig = Outfit.signatureOf(pieces.map { it.itemId })
-        val o = outfits.bySignature(sig) ?: Outfit(UUID.randomUUID().toString(), pieces, OutfitSource.GENERATED, createdAtMillis = time.nowMillis())
+        val existing = outfits.bySignature(sig)
+        val o = existing ?: Outfit(UUID.randomUUID().toString(), pieces, OutfitSource.GENERATED, createdAtMillis = time.nowMillis())
         outfits.save(o.copy(neverShow = true, liked = false))
-        return record(event(FeedbackType.NEVER_AGAIN, pieces, ctx))
+        return record(event(FeedbackType.NEVER_AGAIN, pieces, ctx)).copy(outfitBefore = existing, outfitId = o.id)
     }
 
     suspend fun checkIn(log: WearLog, payload: CheckInPayload, ctx: EngineContext): Recorded {
@@ -137,6 +146,8 @@ class FeedbackRecorder @Inject constructor(
                 wardrobe.upsert(item.copy(laundry = l, status = if (p.itemId in r.laundryItems) ItemStatus.AVAILABLE else item.status), time.nowMillis())
             }
         }
+        // A saved (or never-again) outfit goes back to how it was.
+        r.outfitId?.let { id -> r.outfitBefore?.let { outfits.save(it) } ?: outfits.delete(id) }
         feedback.rebuild(s.learningEpoch, LearningConfig.of(s))
     }
 }

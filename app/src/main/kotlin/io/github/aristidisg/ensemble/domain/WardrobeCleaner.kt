@@ -7,6 +7,7 @@ import io.github.aristidisg.ensemble.data.repo.OutfitRepository
 import io.github.aristidisg.ensemble.data.repo.PlanRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.engine.DemoWardrobe
+import io.github.aristidisg.ensemble.engine.ItemFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -28,6 +29,16 @@ class WardrobeCleaner @Inject constructor(
         outfits.all().filter { o -> o.itemIds.any { it in ids } }.forEach { outfits.delete(it.id) }
         plans.allPlans().filter { p -> p.pieces.any { it.itemId in ids } }.forEach { plans.deletePlan(it.epochDay) }
         // Wear history is kept: past days still show the pieces that remain.
+    }
+
+    /**
+     * Re-derives color families and automatic names for every stored piece after the naming
+     * rules change (e.g. deep navy once read as black). Typed names and exact colors are kept.
+     */
+    suspend fun repairColorNames(): Int = withContext(Dispatchers.IO) {
+        val fixed = wardrobe.all().mapNotNull { i -> ItemFactory.normalizeColors(i).takeIf { it != i } }
+        if (fixed.isNotEmpty()) wardrobe.upsertAll(fixed, time.nowMillis())
+        fixed.size
     }
 
     private fun demoText(): String = app.assets.open("demo_wardrobe.json").bufferedReader().use { it.readText() }

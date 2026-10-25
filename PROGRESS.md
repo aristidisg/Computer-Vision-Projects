@@ -79,10 +79,36 @@ Actions is the build machine (see DECISIONS.md).
     Each flag has a one-tap fix, a picker and "It's right". Every mid and outer layer is also
     listed for a manual pass.
   - **Category picker** now splits Tops from Mid layers and labels Outer layers.
+- [x] **Bug sweep.**
+  - **Colour names.** Tinted near-blacks (deep navy) are never called black. Denim names are
+    used only for denim pieces. A new Blue family covers mid and royal blues. Stored pieces are
+    renamed once on update; typed names are kept.
+  - **Check labels.** The picker now has an explicit Save and a "Saved: …" confirmation. "It's
+    right" is remembered, and fixes apply to the piece as stored now.
+  - **Editor.**
+    - Changing material, pattern or fabric weight no longer resets hand-set formality or seasons.
+    - Colour shares always add up to 100 %.
+    - An empty cutout can't erase a piece's colours.
+    - Deleting a piece also removes its outfits and plans, and its detail page closes.
+  - **Deck.**
+    - Rebuilt when pieces are added or deleted elsewhere.
+    - Rotation uses earlier days only, so reopening the app doesn't reshuffle today's deck.
+    - Undo after Save removes the saved outfit.
+    - Flicks count as swipes.
+    - The "Why not?" timer restarts for every No.
+  - **Outfits.**
+    - "Saved" can be tapped to un-save.
+    - Swap shows a spinner, then "nothing else fits" when empty.
+    - The composer can't put one piece in two slots and marks pieces in the laundry.
+    - "Plan for…" confirms.
+  - **Plan.** Plans made elsewhere show up immediately; opening Laundry no longer re-plans the
+    week.
+  - **App.** Rotating the phone no longer re-runs a share or notification action. Seasonal swap
+    re-reads pieces before writing. `!!` removed from import, wear logging and C8.
 
 ## Tests
 
-- :engine — 106 tests (colour edits, seasonal swap, wear again, shopping list, clashes, rotation, collection influence and label check included): color conversions against reference values, artist-hue anchors,
+- :engine — 113 tests (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,

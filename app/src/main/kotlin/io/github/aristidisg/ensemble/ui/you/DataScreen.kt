@@ -75,14 +75,14 @@ class DataViewModel @Inject constructor(
     }
 
     fun preview(uri: Uri) = viewModelScope.launch {
-        runCatching { withContext(Dispatchers.IO) { app.contentResolver.openInputStream(uri)!!.use { backup.preview(it) } } }
+        runCatching { withContext(Dispatchers.IO) { (app.contentResolver.openInputStream(uri) ?: error("Can't open the file")).use { backup.preview(it) } } }
             .onSuccess { _preview.value = uri to it }.onFailure { _msg.value = it.message }
     }
 
     fun import(replace: Boolean) = viewModelScope.launch {
         val (uri, _) = _preview.value ?: return@launch
         _preview.value = null
-        runCatching { app.contentResolver.openInputStream(uri)!!.use { backup.import(it, replace) } }
+        runCatching { (app.contentResolver.openInputStream(uri) ?: error("Can't open the file")).use { backup.import(it, replace) } }
             .onSuccess { _msg.value = "✓" }.onFailure { _msg.value = it.message }
     }
 

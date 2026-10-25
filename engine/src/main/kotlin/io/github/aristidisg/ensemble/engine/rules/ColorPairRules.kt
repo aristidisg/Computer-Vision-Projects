@@ -52,7 +52,8 @@ object ColorPairRules {
     fun c8DenimOnDenim(look: Look): RuleResult? {
         val denims = look.core.filter { it.slot != Slot.SHOES && (Material.DENIM in it.item.materials || it.item.primaryColor?.family?.isDenim == true) }
         if (denims.size < 2) return null
-        val a = look.dominant(denims[0].item)!!; val b = look.dominant(denims[1].item)!!
+        val a = look.dominant(denims[0].item) ?: return null
+        val b = look.dominant(denims[1].item) ?: return null
         val ok = abs(a.l - b.l) >= 0.15 || ColorScience.deltaE(a.lab, b.lab) <= 0.03
         return if (ok) res("C8", G, 1.0, 1.0, Explain.DENIM_OK) else res("C8", G, 0.2, 1.5, Explain.DENIM_CLASH)
     }

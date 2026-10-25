@@ -28,16 +28,28 @@ class ColorEditsTest {
     }
 
     @Test fun `multicolor pieces get roles by share`() {
-        val two = ColorEdits.add(jacket, "#C8A27A", share = 0.6)!!
-        // The original color keeps share 1.0, so it stays primary; the new one is secondary.
+        val two = ColorEdits.add(jacket, "#C8A27A", share = 0.3)!!
+        // The new color takes 30 % out of the original, which keeps 70 % and stays primary.
+        assertEquals(0.7, two.colors[0].share, 1e-9)
         assertEquals(ColorRole.PRIMARY, two.colors[0].role)
         assertEquals(ColorRole.SECONDARY, two.colors[1].role)
         val swapped = ColorEdits.setShare(two, 0, 0.3)
+        assertEquals(0.7, swapped.colors[1].share, 1e-9)
         assertEquals(ColorRole.SECONDARY, swapped.colors[0].role)
         assertEquals(ColorRole.PRIMARY, swapped.colors[1].role)
         val three = ColorEdits.add(two, "#B22222", share = 0.05)!!
         assertEquals(ColorRole.ACCENT, three.colors[2].role)
         assertEquals(1, three.colors.count { it.role == ColorRole.PRIMARY })
+    }
+
+    @Test fun `shares always add up to 100 percent`() {
+        var i = ColorEdits.add(jacket, "#C8A27A", share = 0.6)!!
+        i = ColorEdits.add(i, "#FFFFFF")!!
+        i = ColorEdits.setShare(i, 1, 0.5)
+        assertEquals(1.0, i.colors.sumOf { it.share }, 1e-9)
+        assertEquals(0.5, i.colors[1].share, 1e-9)
+        assertEquals(1.0, ColorEdits.remove(i, 0).colors.sumOf { it.share }, 1e-9)
+        assertEquals(1.0, ColorEdits.setShare(jacket, 0, 0.4).colors.single().share, 1e-9)
     }
 
     @Test fun `color count is capped and the last color stays`() {

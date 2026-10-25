@@ -82,7 +82,17 @@ class TodayViewModel @Inject constructor(
             val day = time.today()
             selectScenario(studio.defaultScenarioId(day), day)
         }
-        viewModelScope.launch { wardrobe.items.collect { items -> _state.update { it.copy(items = items.associateBy { i -> i.id }, minimum = minimum(items)) } } }
+        viewModelScope.launch {
+            var ids: Set<String>? = null
+            wardrobe.items.collect { items ->
+                _state.update { it.copy(items = items.associateBy { i -> i.id }, minimum = minimum(items)) }
+                // Pieces added or deleted elsewhere: rebuild the deck so it never shows a deleted
+                // piece and new pieces get a chance. Swipes and wears keep the set, so no reshuffle.
+                val now = items.map { it.id }.toSet()
+                if (ids != null && now != ids && _state.value.scenario != null) generate()
+                ids = now
+            }
+        }
     }
 
     private fun minimum(items: List<Item>): MinimumSet {

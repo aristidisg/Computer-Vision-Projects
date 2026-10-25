@@ -39,6 +39,7 @@ object ColorTables {
         FamilyInfo(MID_DENIM, "#5B7FA6", 0.85, C),
         FamilyInfo(LIGHT_DENIM, "#A7BCD6", 0.8, C),
         FamilyInfo(LIGHT_BLUE, "#A9C7E8", 0.6, C),
+        FamilyInfo(BLUE, "#3A5A9B", 0.3, C),
         FamilyInfo(COBALT, "#2F55D4", 0.0, C),
         FamilyInfo(TEAL, "#1F7A7A", 0.2, C),
         FamilyInfo(FOREST_GREEN, "#1F4D2E", 0.4, C),
@@ -90,6 +91,7 @@ object ColorTables {
         put(OLIVE, ECRU, 0.85); put(OLIVE, RUST, 0.85); put(OLIVE, BROWN, 0.85); put(OLIVE, greys, 0.70)
         put(CAMEL, WHITE, 0.90); put(CAMEL, greys, 0.90)
         put(BROWN, LIGHT_BLUE, 0.90); put(BROWN, ECRU, 0.90)
+        put(BLUE, listOf(WHITE, ECRU, STONE, KHAKI, CAMEL), 0.85); put(BLUE, greys, 0.80); put(BLUE, BROWN, 0.80)
         put(denims, listOf(WHITE), 0.95); put(denims, listOf(CAMEL), 0.90); put(denims, greys, 0.85)
         put(denims, listOf(OLIVE), 0.80); put(denims, listOf(BLACK), 0.75); put(denims, listOf(NAVY), 0.70)
     }

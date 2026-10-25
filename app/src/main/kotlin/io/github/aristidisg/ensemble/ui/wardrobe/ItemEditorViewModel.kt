@@ -11,6 +11,7 @@ import io.github.aristidisg.ensemble.data.files.ImageStore
 import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
+import io.github.aristidisg.ensemble.domain.WardrobeCleaner
 import io.github.aristidisg.ensemble.engine.ColorEdits
 import io.github.aristidisg.ensemble.engine.ItemFactory
 import io.github.aristidisg.ensemble.engine.color.ColorScience
@@ -74,6 +75,7 @@ class ItemEditorViewModel @Inject constructor(
     private val images: ImageStore,
     private val settings: SettingsRepository,
     private val time: TimeSource,
+    private val cleaner: WardrobeCleaner,
 ) : ViewModel() {
     private val _s = MutableStateFlow(EditorState())
     /** For the "Same as…" picker. */
@@ -193,7 +195,7 @@ class ItemEditorViewModel @Inject constructor(
     fun update(transform: (Item) -> Item) = _s.update { s -> s.copy(draft = s.draft?.let(transform)) }
 
     fun setPattern(type: PatternType) = update { d ->
-        ItemFactory.refreshDerived(d.copy(pattern = if (type == PatternType.SOLID) Pattern() else d.pattern.copy(type = type, scale = if (d.pattern.scale == PatternScale.NONE) PatternScale.SMALL else d.pattern.scale, loudness = maxOf(1, d.pattern.loudness))))
+        ItemFactory.refreshDerived(d.copy(pattern = if (type == PatternType.SOLID) Pattern() else d.pattern.copy(type = type, scale = if (d.pattern.scale == PatternScale.NONE) PatternScale.SMALL else d.pattern.scale, loudness = maxOf(1, d.pattern.loudness))), d)
     }
 
     private fun editColors(edit: (Item) -> Item?): Boolean {
@@ -234,7 +236,8 @@ class ItemEditorViewModel @Inject constructor(
 
     fun delete() = viewModelScope.launch {
         val d = _s.value.draft ?: return@launch
-        wardrobe.delete(d.id); images.deleteItem(d.id)
+        // Also removes its photos and the saved outfits and plans that use it.
+        cleaner.delete(setOf(d.id))
         _s.update { it.copy(saved = true) }
     }
 

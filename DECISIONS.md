@@ -94,7 +94,9 @@ Choices made where the spec left room, or where it was changed. Newest first.
     load.
   - Diversification (MMR) subtracts 0.05 for each earlier card in the deck that used the same
     piece.
-  - It also subtracts up to 0.25 for a card whose pieces were all in the last 5 decks.
+  - It also subtracts up to 0.25 for a card whose pieces were in every one of the last 5 days'
+    decks. Only earlier days count (all decks of one day count as one), so today's deck stays
+    the same when the app is reopened and changes from one day to the next.
   - This lives in deck building, not in the rule groups, so Match % still means "how good is
     this outfit".
 - **Coverage over pure score.** The beam keeps the best partial outfit for every piece, and the
@@ -102,6 +104,18 @@ Choices made where the spec left room, or where it was changed. Newest first.
 - **Clashes are data.** `ColorTables.clashes` lists family pairs that read badly even when hue
   harmony likes them. C7 scores them 0.15 with weight 4. The list is deliberately short; anything
   else is left to your swipes and custom rules.
+- **Colour naming.**
+  - A colour with chroma ≥ 0.03 is never matched to an achromatic family (black, greys,
+    white), so deep navy can't read as black.
+  - Denim families are candidates only for pieces made of denim; a dark-blue sweater is navy
+    or blue.
+  - A "Blue" family (#3A5A9B) fills the gap between navy and cobalt.
+  - `ItemFactory.normalizeColors` re-derives families and the automatic name. Stored pieces are
+    repaired once per `COLOR_NAMES_VERSION` at app start.
+- **Hand-set values win over derived defaults.** `refreshDerived(item, before)` updates formality
+  or seasons only if they still matched the automatic value before the edit.
+- **Colour shares are normalised to 100 %.** Adding a colour takes its share out of the others,
+  and dragging one share rebalances the rest in their old proportions.
 - **Collection influence is a bonus, not a rule group.**
   - Similarity to the closest saved or composed outfit is 0.6 × shared colour-family pairs +
     0.4 × shared core pieces (both Jaccard).

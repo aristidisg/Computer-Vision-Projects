@@ -91,6 +91,23 @@ Actions is the build machine (see DECISIONS.md).
   - Today redesign: compact date + weather pill header, one chip row, the card's collage as
     the hero with technique headline, Match badge, palette dots and a colour wash; vermilion
     accent. Fixes the squashed collage on small screens. The date is always in English.
+- [x] **Stylist tools.**
+  - Pieces you build around or lock stay visible: no white tee under a hoodie and a closed
+    coat in Item detail, Today locks or "Complete it". Turn and signature cards show their piece.
+  - How to wear it: tuck, roll, cuff and collar tips (a data table) on the card, the outfit
+    detail and the lookbook.
+  - Moods: Seoul minimal, Italian summer, '90s street, old money, workwear, gorpcore (Today's
+    Mood chip, saved).
+  - Accent: build today's deck around one colour from your wardrobe (this deck only).
+  - Signature pieces get their own card in each deck, a different one each day.
+  - Fresh pairs: only clothes never shown or worn together.
+  - ✦ Vogue stylist: six cover looks, each with a technique, finished with accessories and two
+    cover lines.
+  - Insights: "This week" variety card (score, pieces used, colours, repeats, unworn 30 days);
+    the gap finder skips what you own, lists one per kind of piece (two per colour) and says
+    what each pairs with, which forgotten pieces it rescues and which techniques it opens up.
+  - Lookbook (Outfits → Lookbook): saved and composed outfits as full-screen editorial pages.
+  - New app icon: ivory monogram and vermilion spark on ink.
 - [x] **Fresh outfits, experiment, colours, layers.**
   - Outfits shown in the last 3 days are held back.
   - ✦ Experiment mode.
@@ -146,7 +163,7 @@ Actions is the build machine (see DECISIONS.md).
 
 ## Tests
 
-- :engine — 132 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
+- :engine — 163 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,

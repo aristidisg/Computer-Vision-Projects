@@ -97,7 +97,7 @@ fun ItemForm(d: Item, suggestPattern: Boolean, vm: ItemEditorViewModel) {
         SectionTitle(stringResource(R.string.status))
         ChoiceChips(ItemStatus.entries, setOf(d.status), { it.label }, { v -> vm.update { it.copy(status = v) } }, scroll = true)
         SwitchRow(stringResource(R.string.favorite), d.flags.favorite, { v -> vm.update { it.copy(flags = it.flags.copy(favorite = v)) } })
-        SwitchRow(stringResource(R.string.signature_piece), d.flags.signature, { v -> vm.update { it.copy(flags = it.flags.copy(signature = v)) } })
+        SwitchRow(stringResource(R.string.signature_piece), d.flags.signature, { v -> vm.update { it.copy(flags = it.flags.copy(signature = v)) } }, stringResource(R.string.signature_body))
         SwitchRow(stringResource(R.string.never_suggest), d.flags.neverSuggest, { v -> vm.update { it.copy(flags = it.flags.copy(neverSuggest = v)) } })
 
         TextButton(onClick = { advanced = !advanced }) { Text(stringResource(R.string.advanced)) }

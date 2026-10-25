@@ -37,6 +37,8 @@ import io.github.aristidisg.ensemble.domain.Studio
 import io.github.aristidisg.ensemble.domain.TimeSource
 import io.github.aristidisg.ensemble.engine.color.ColorTables
 import io.github.aristidisg.ensemble.engine.planner.GapFinder
+import io.github.aristidisg.ensemble.engine.planner.VarietyReport
+import io.github.aristidisg.ensemble.engine.planner.VarietyStats
 import io.github.aristidisg.ensemble.engine.planner.GapSuggestion
 import io.github.aristidisg.ensemble.engine.planner.Orphan
 import io.github.aristidisg.ensemble.engine.planner.Routines
@@ -70,6 +72,9 @@ data class InsightsState(
     val gaps: List<GapSuggestion> = emptyList(),
     val orphans: List<Orphan> = emptyList(),
     val computing: Boolean = false,
+    val variety: VarietyReport? = null,
+    /** Item names by ID, for the gap finder's "goes with". */
+    val names: Map<String, String> = emptyMap(),
 )
 
 @HiltViewModel
@@ -103,6 +108,7 @@ class InsightsViewModel @Inject constructor(
                     palette = items.mapNotNull { i -> i.primaryColor?.family }.groupingBy { f -> f }.eachCount().toList().sortedByDescending { p -> p.second },
                     wears = items.map { i -> i to (counts[i.id] ?: 0) }.sortedByDescending { p -> p.second },
                     unworn60 = unworn(60), unworn90 = unworn(90),
+                    variety = VarietyStats.week(logs, items, today), names = items.associate { i -> i.id to i.name },
                 )
             }
         }
@@ -148,6 +154,7 @@ fun InsightsScreen(nav: NavHostController, vm: InsightsViewModel = hiltViewModel
             TextButton(onClick = { nav.navigate(ShoppingListRoute) }) { Text(stringResource(R.string.shopping_list)) }
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            VarietySection(s.variety)
             SectionTitle(stringResource(R.string.palette_title))
             val total = s.palette.sumOf { it.second }.coerceAtLeast(1)
             Canvas(Modifier.fillMaxWidth().height(28.dp)) {
@@ -186,16 +193,7 @@ fun InsightsScreen(nav: NavHostController, vm: InsightsViewModel = hiltViewModel
             }
             if (s.gaps.isNotEmpty()) {
                 SectionTitle(stringResource(R.string.gap_finder))
-                s.gaps.forEach { g ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                        Column(Modifier.weight(1f)) {
-                            Text(g.title, style = MaterialTheme.typography.bodyLarge)
-                            Text(stringResource(R.string.gap_line, g.unlocks, g.fills.joinToString()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        val onList = "${g.archetype.sub}/${g.color}" in listed
-                        TextButton(onClick = { vm.addToList(g) }, enabled = !onList) { Text(stringResource(if (onList) R.string.on_list else R.string.add_to_list)) }
-                    }
-                }
+                s.gaps.forEach { g -> GapRow(g, s.names, "${g.archetype.sub}/${g.color}" in listed) { vm.addToList(g) } }
             }
             if (s.orphans.isNotEmpty()) {
                 SectionTitle(stringResource(R.string.orphans))

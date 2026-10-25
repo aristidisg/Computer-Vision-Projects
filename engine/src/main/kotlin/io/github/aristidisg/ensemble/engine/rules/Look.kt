@@ -44,10 +44,7 @@ class Look(val placed: List<Placed>, ctx: EngineContext) {
     val signature: String = io.github.aristidisg.ensemble.model.Outfit.signatureOf(itemIds)
 
     /** Outer is closed when it is a warm coat, can't be worn open, or it is cold. */
-    val outerClosed: Boolean = outer?.let {
-        val w = TaxonomyTable.of(it.subcategory).outer
-        w == OuterWeight.WARM || !it.layering.canWearOpen || ctx.weather.feelsMin < 12.0
-    } ?: false
+    val outerClosed: Boolean = outer?.let { !wornOpen(it, ctx) } ?: false
 
     /**
      * A pullover mid layer (hoodie, crewneck, sweatshirt) covers the top except collar and hem;
@@ -71,6 +68,9 @@ class Look(val placed: List<Placed>, ctx: EngineContext) {
         Slot.SHOES -> Area.SHOES
         else -> Area.accessory(slot)
     }
+
+    /** True when a piece in [slot] reads in the outfit (not just a collar under a closed layer). */
+    fun isVisible(slot: Slot): Boolean = !slot.isCore || slot == Slot.SHOES || areaWeight(slot) >= Area.VISIBLE
 
     /** Raw slot weights normalized to 1 for the outfit. */
     val pieceArea: Map<String, Double> = run {
@@ -114,6 +114,10 @@ class Look(val placed: List<Placed>, ctx: EngineContext) {
 
         fun colorInfo(hex: String, family: ColorFamily): ColorInfo =
             cache.getOrPut("$hex|$family") { ColorScience.info(ColorScience.hexToLab(hex), ColorScience.parseHex(hex), family = family) }
+
+        /** An outer layer is worn open unless it is a warm coat, can't open, or it is cold. */
+        fun wornOpen(outer: Item, ctx: EngineContext): Boolean =
+            TaxonomyTable.of(outer.subcategory).outer != OuterWeight.WARM && outer.layering.canWearOpen && ctx.weather.feelsMin >= 12.0
 
         fun of(pieces: List<OutfitPiece>, ctx: EngineContext): Look? {
             val placed = pieces.map { p -> Placed(ctx.items[p.itemId] ?: return null, p.slot) }

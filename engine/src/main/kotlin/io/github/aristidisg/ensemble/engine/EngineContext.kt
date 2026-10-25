@@ -3,7 +3,9 @@ package io.github.aristidisg.ensemble.engine
 import io.github.aristidisg.ensemble.engine.learning.PreferenceSnapshot
 import io.github.aristidisg.ensemble.engine.rules.CollectionProfile
 import io.github.aristidisg.ensemble.engine.rules.CollectionRules
+import io.github.aristidisg.ensemble.engine.tables.MoodTable
 import io.github.aristidisg.ensemble.engine.tables.WarmthTable
+import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.CustomRule
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.OutfitPiece
@@ -46,6 +48,12 @@ class WearHistory(val logs: List<WearLog>) {
     }
 }
 
+/**
+ * Choices made on Today for one deck (not saved): a colour to build around, and Vogue stylist
+ * mode (cover looks: a clear technique, finished with accessories, styling notes).
+ */
+data class DeckOptions(val accent: ColorFamily? = null, val vogue: Boolean = false)
+
 /** Everything a rule may look at. Time and randomness are passed in; nothing is read from the system. */
 data class EngineContext(
     val scenario: Scenario,
@@ -77,6 +85,9 @@ data class EngineContext(
     val neverAgain: Set<String> = emptySet(),
     /** Saved and liked outfits ("my collection"), used when savedOutfitsInfluence is on. */
     val collection: List<List<OutfitPiece>> = emptyList(),
+    val options: DeckOptions = DeckOptions(),
+    /** Core-piece pairs (see [pairKey]) shown together in recent decks or worn together (fresh-pairs mode). */
+    val shownPairs: Set<String> = emptySet(),
 ) {
     /** Precomputed pieces and color-family pairs of the collection. */
     val collectionProfiles: List<CollectionProfile> by lazy { CollectionRules.profiles(this) }
@@ -98,7 +109,8 @@ data class EngineContext(
     }
 
     /** Boldness after the strictness preset and learned "too boring / too loud" nudges (+ experiment). */
-    val boldness: Double get() = (settings.boldness + prefs.boldnessDelta + if (settings.experimentMode) EXPERIMENT_BOLDNESS else 0.0).coerceIn(0.0, 1.0)
+    val boldness: Double get() = (settings.boldness + prefs.boldnessDelta + (if (settings.experimentMode) EXPERIMENT_BOLDNESS else 0.0) +
+        (settings.mood?.let { MoodTable.of(it).boldness } ?: 0.0) + (if (options.vogue) VOGUE_BOLDNESS else 0.0)).coerceIn(0.0, 1.0)
 
     /** Experiment loosens the style rules as the Adventurous preset does. */
     val strictness: io.github.aristidisg.ensemble.model.Strictness get() =
@@ -128,6 +140,11 @@ data class EngineContext(
         const val EXPERIMENT_BOLDNESS = 0.35
         const val EXPERIMENT_EXPLORATION = 0.4
         const val EXPERIMENT_LEARNED = 0.4
+        /** Vogue stylist: cover looks are a little braver than everyday ones. */
+        const val VOGUE_BOLDNESS = 0.2
+
+        /** Order-free key for two pieces worn or shown together. */
+        fun pairKey(a: String, b: String): String = if (a < b) "$a|$b" else "$b|$a"
 
         /** Northern-hemisphere meteorological seasons. */
         fun seasonOf(epochDay: Long): Season = when (LocalDate.ofEpochDay(epochDay).monthValue) {

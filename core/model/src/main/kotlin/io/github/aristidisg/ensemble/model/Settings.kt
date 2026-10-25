@@ -152,6 +152,10 @@ data class Settings(
     val outerwearOff: Boolean = false,
     /** No mid layers (sweaters, hoodies, overshirts as a layer): the top shows on its own or under a jacket. */
     val midLayersOff: Boolean = false,
+    /** Style direction for suggestions (Today's Mood chip); null = no mood. */
+    val mood: Mood? = null,
+    /** Only outfits whose pieces have never been shown (or worn) together. */
+    val freshPairsOnly: Boolean = false,
     /** Pieces to buy, usually added from the gap finder. */
     val shoppingList: List<ShoppingEntry> = emptyList(),
 ) {

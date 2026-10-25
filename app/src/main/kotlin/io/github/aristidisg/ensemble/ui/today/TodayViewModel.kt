@@ -14,7 +14,10 @@ import io.github.aristidisg.ensemble.domain.Studio
 import io.github.aristidisg.ensemble.domain.TimeSource
 import io.github.aristidisg.ensemble.domain.WeatherService
 import io.github.aristidisg.ensemble.engine.DemoWardrobe
+import io.github.aristidisg.ensemble.engine.DeckOptions
 import io.github.aristidisg.ensemble.engine.EngineContext
+import io.github.aristidisg.ensemble.model.ColorFamily
+import io.github.aristidisg.ensemble.model.Mood
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.OutfitPiece
@@ -60,6 +63,14 @@ data class TodayState(
     val noOuter: Boolean = false,
     /** Mid layers are switched off (Settings.midLayersOff). */
     val noMid: Boolean = false,
+    val mood: Mood? = null,
+    /** Only pairings never shown or worn together. */
+    val freshPairs: Boolean = false,
+    /** Today's colour to build around (not saved) and the families in the wardrobe to choose from. */
+    val accent: ColorFamily? = null,
+    val accentChoices: List<ColorFamily> = emptyList(),
+    /** Vogue stylist: a short deck of cover looks. */
+    val vogue: Boolean = false,
 )
 
 @HiltViewModel
@@ -92,7 +103,7 @@ class TodayViewModel @Inject constructor(
             // Rebuild only when a newer forecast actually arrived.
             if (r.getOrNull()?.fetchedAtMillis?.let { it != before } == true) generate()
         }
-        viewModelScope.launch { settings.settings.collect { s -> _state.update { it.copy(experiment = s.experimentMode, noOuter = s.outerwearOff, noMid = s.midLayersOff) } } }
+        viewModelScope.launch { settings.settings.collect { s -> _state.update { it.copy(experiment = s.experimentMode, noOuter = s.outerwearOff, noMid = s.midLayersOff, mood = s.mood, freshPairs = s.freshPairsOnly) } } }
         viewModelScope.launch {
             var ids: Set<String>? = null
             wardrobe.items.collect { items ->
@@ -135,6 +146,15 @@ class TodayViewModel @Inject constructor(
         regenerate++
         generate()
     }
+
+    /** Mood, fresh pairs (saved), accent and Vogue (this deck only): each deals a new deck. */
+    fun setMood(m: Mood?) = viewModelScope.launch { settings.update { it.copy(mood = m) }; regenerate++; generate() }
+
+    fun setFreshPairs(on: Boolean) = viewModelScope.launch { settings.update { it.copy(freshPairsOnly = on) }; regenerate++; generate() }
+
+    fun setAccent(f: ColorFamily?) { _state.update { it.copy(accent = f) }; regenerate++; generate() }
+
+    fun setVogue(on: Boolean) { _state.update { it.copy(vogue = on) }; regenerate++; generate() }
 
     /** Mid layers on/off: a new deck straight away. */
     fun setNoMid(on: Boolean) = viewModelScope.launch {
@@ -186,9 +206,12 @@ class TodayViewModel @Inject constructor(
         job = viewModelScope.launch {
             _state.update { it.copy(loading = true) }
             val w = studio.dayWeather(s.epochDay, sc)
-            val (c, deck) = studio.deck(s.epochDay, sc, regenerate, s.locked, boldShift, w.window)
+            val (c, deck) = studio.deck(s.epochDay, sc, regenerate, s.locked, boldShift, w.window, DeckOptions(s.accent, s.vogue))
             ctx = c
-            _state.update { it.copy(weather = w, cards = deck.cards, loading = false, whyNotFor = null) }
+            // Colours you could build the day around: those of your available clothes, most common first.
+            val choices = c.items.values.filter { it.isAvailable && it.primarySlot.isCore }.mapNotNull { it.primaryColor?.family }
+                .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
+            _state.update { it.copy(weather = w, cards = deck.cards, loading = false, whyNotFor = null, accentChoices = choices) }
             if (s.epochDay == time.today() && regenerate == 0) deck.cards.firstOrNull()?.let { top ->
                 WidgetState.save(app, top, c.items, w.window, sc.name)
             }

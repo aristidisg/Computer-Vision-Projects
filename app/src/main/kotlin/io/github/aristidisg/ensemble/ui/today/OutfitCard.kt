@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import io.github.aristidisg.ensemble.ui.common.hexColor
 import io.github.aristidisg.ensemble.ui.common.techniqueBlurb
+import io.github.aristidisg.ensemble.ui.common.tipText
 import io.github.aristidisg.ensemble.ui.common.techniqueName
 import io.github.aristidisg.ensemble.ui.theme.HeroStyle
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -63,7 +64,11 @@ data class PieceActions(
  * collage as the hero (it always gets most of the height) and the outfit's palette as dots.
  */
 @Composable
-fun OutfitCard(card: ScoredOutfit, items: Map<String, Item>, onOpen: () -> Unit, actions: PieceActions, modifier: Modifier = Modifier) {
+fun OutfitCard(
+    card: ScoredOutfit, items: Map<String, Item>, onOpen: () -> Unit, actions: PieceActions, modifier: Modifier = Modifier,
+    /** Vogue stylist: a cover look, with the styling notes as cover lines. */
+    cover: Boolean = false,
+) {
     val placed = card.pieces.mapNotNull { p -> items[p.itemId]?.let { it to p.slot } }
     val palette = placed.mapNotNull { (it, _) -> it.colors.firstOrNull()?.let { c -> hexColor(c.hex) } }.distinct()
     val accent = LocalEnsembleColors.current.accent
@@ -81,7 +86,8 @@ fun OutfitCard(card: ScoredOutfit, items: Map<String, Item>, onOpen: () -> Unit,
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(card.harmony.uppercase(), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.5.sp), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        val over = if (cover) stringResource(R.string.cover_look) else card.harmony
+                        Text(over.uppercase(), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.5.sp), color = if (cover) accent else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         if (card.newIdea) Text(
                             stringResource(R.string.new_idea), style = MaterialTheme.typography.labelSmall, color = LocalEnsembleColors.current.onAccent,
                             modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(accent).padding(horizontal = 6.dp, vertical = 2.dp),
@@ -104,8 +110,12 @@ fun OutfitCard(card: ScoredOutfit, items: Map<String, Item>, onOpen: () -> Unit,
                 val meta = listOfNotNull(f?.let { "${stringResource(R.string.formality)} $it" }, card.weatherLine?.let { explain(it) }).joinToString("  ·  ")
                 Text(meta, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             }
-            card.why.firstOrNull { it.id != "STYLE" }?.let {
+            if (!cover) card.why.firstOrNull { it.id != "STYLE" }?.let {
                 Text(explain(it), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            }
+            // How to wear it: one note on a normal card, both as cover lines on a cover look.
+            card.tips.take(if (cover) 2 else 1).forEach { t ->
+                Text("— " + tipText(t), style = MaterialTheme.typography.labelMedium, color = accent, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 card.pieces.forEach { p -> items[p.itemId]?.let { PieceThumb(it, p, actions, Modifier.weight(1f)) } }

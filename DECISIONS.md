@@ -248,3 +248,24 @@ Choices made where the spec left room, or where it was changed. Newest first.
 - **Today layout.** The weather card became a pill in the header and day selection moved to a
   menu on the date, freeing about 200 dp for the card. The accent colour sits only on UI
   (badge, headline tags, Like button), never behind clothing photos.
+- **Locked pieces stay visible.** With a top or mid layer locked, the generator first searches
+  without pullovers over a locked top and with only coats worn open, keeping outfits where the
+  piece reads (area ≥ 0.12); then accepts "under one closed layer"; only then anything. The
+  fallback structures now keep locked layers (a locked knit had been dropped on cold days when
+  no coat could be worn open).
+- **Editorial layer** (EditorialRules, outside the rule groups): technique bonus ×3 in Vogue
+  stylist mode and −0.04 without one; mood fit 0..1 (half palette area, half pieces: signature
+  subcategory 0.5, fabric 0.2, style tag 0.2, cut 0.1) adds 0.12 × (fit − 0.4); accent colour
+  visible on ≥ 6 % of the outfit adds 0.08 (−0.03 per competing loud colour), missing costs 0.12,
+  and the deck keeps only cards with it when any exist.
+- **Fresh pairs** compares clothes only (shoes go with everything), from earlier days' decks
+  and all wears; when fewer than half a deck is fresh, the fewest repeats fill in.
+- **Signature card**: one per deck (not when building around a piece), rotating by day and
+  regenerate count, preferring outfits not shown in the last days.
+- **Vogue stylist** is a per-deck option, not a setting: six cards, no new-idea or turn cards,
+  at least two accessories when the occasion allows, +0.2 boldness.
+- **Gap finder ranking**: weighted new outfits + 3 × rescued pieces + 2 × techniques (both in
+  units of an average-weight outfit). Rescued = a partner piece in fewer than 3 good outfits now.
+- **Weekly variety score** = 100 × (0.6 × distinct clothes / clothes worn + 0.4 × colour families
+  / min(6, wears)). Shoes and accessories don't count.
+

@@ -12,10 +12,12 @@ import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.data.weather.WeatherRepository
+import io.github.aristidisg.ensemble.engine.DeckOptions
 import io.github.aristidisg.ensemble.engine.EngineContext
 import io.github.aristidisg.ensemble.engine.OutfitEngine
 import io.github.aristidisg.ensemble.engine.WeatherWindow
 import io.github.aristidisg.ensemble.engine.WearHistory
+import io.github.aristidisg.ensemble.engine.generator.DeckPicks
 import io.github.aristidisg.ensemble.engine.generator.SuggestionDeck
 import io.github.aristidisg.ensemble.engine.generator.SuggestionRequest
 import io.github.aristidisg.ensemble.engine.learning.LearningConfig
@@ -111,14 +113,20 @@ class Studio @Inject constructor(
             // Outfits from the last 3 days (and today's earlier decks for "More") are held back.
             val shownOutfits = decks.take(SHOWN_DAYS).flatten().filter { it.items.isNotEmpty() }
                 .map { Outfit.signatureOf(it.items) }.toSet()
+            val wears = wear.all()
+            val byId = items.associateBy { it.id }
+            // Fresh-pairs mode: clothes shown together in earlier decks (as rotation, so the deck stays put
+            // while you look at it) or worn together.
+            val pairs = (logged.filter { before(it.epochDay) }.flatMap { DeckLog.decode(it.json) }.map { it.items } + wears.map { l -> l.pieces.map { it.itemId } })
+                .flatMap { DeckPicks.pairKeys(it, byId) }.toSet()
             EngineContext(
                 scenario = scenario,
                 weather = weatherOverride ?: dayWeather(epochDay, scenario, s).window,
                 epochDay = epochDay,
                 settings = s,
-                items = items.associateBy { it.id },
+                items = byId,
                 prefs = prefs,
-                history = WearHistory(wear.all()),
+                history = WearHistory(wears),
                 customRules = rules.allRules(),
                 plannedSoon = soon,
                 recentDeckSignatures = recent,
@@ -128,22 +136,23 @@ class Studio @Inject constructor(
                 outfitCooldowns = saved.mapNotNull { o -> o.cooldownDays?.let { o.signature to it } }.toMap(),
                 neverAgain = saved.filter { it.neverShow }.map { it.signature }.toSet(),
                 collection = saved.filter { it.liked && !it.neverShow }.map { it.pieces },
+                shownPairs = pairs,
             )
         }
 
     suspend fun items(): List<Item> = wardrobe.all()
 
-    /** Generates a deck; [boldnessShift] powers the "Bolder" and "Safer" buttons. */
+    /** Generates a deck; [boldnessShift] powers the "Bolder" and "Safer" buttons, [options] the accent colour and Vogue stylist. */
     suspend fun deck(
         epochDay: Long, scenario: Scenario, regenerate: Int, locked: List<OutfitPiece>,
-        boldnessShift: Double = 0.0, weatherOverride: WindowWeather? = null,
+        boldnessShift: Double = 0.0, weatherOverride: WindowWeather? = null, options: DeckOptions = DeckOptions(),
     ): Pair<EngineContext, SuggestionDeck> = withContext(Dispatchers.Default) {
         val base = settingsRepo.current()
         val s = base.copy(boldness = (base.boldness + boldnessShift).coerceIn(0.0, 1.0))
-        val ctx = context(epochDay, scenario, weatherOverride, s, includeToday = regenerate > 0)
+        val ctx = context(epochDay, scenario, weatherOverride, s, includeToday = regenerate > 0).copy(options = options)
         val items = ctx.items.values.toList()
         val version = items.maxOfOrNull { it.updatedAtMillis } ?: 0L
-        val deck = engine.generate(ctx, items, SuggestionRequest(s.deckSize, locked, regenerate, version + items.size))
+        val deck = engine.generate(ctx, items, SuggestionRequest(if (options.vogue) DeckPicks.VOGUE_DECK else s.deckSize, locked, regenerate, version + items.size))
         db.cache().logDeck(DeckLogEntity(epochDay = epochDay, scenarioId = scenario.id,
             json = DeckLog.encode(deck.cards.map { c -> DeckCardLog(c.signature, c.pieces.filter { it.slot.isCore }.map { it.itemId }) })))
         db.cache().trimDecks()

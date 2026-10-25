@@ -1,5 +1,8 @@
 package io.github.aristidisg.ensemble.ui.outfits
 
+import androidx.compose.material3.FilledTonalButton
+import io.github.aristidisg.ensemble.ui.nav.LookbookRoute
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -123,7 +126,10 @@ fun OutfitsScreen(nav: NavHostController, vm: OutfitsViewModel = hiltViewModel()
     val labels = listOf(R.string.seg_saved, R.string.seg_composed, R.string.seg_inspiration, R.string.seg_history)
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-            Text(stringResource(R.string.tab_outfits), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.tab_outfits), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
+                FilledTonalButton(onClick = { nav.navigate(LookbookRoute) }) { Text(stringResource(R.string.lookbook)) }
+            }
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 labels.forEachIndexed { i, l ->
                     SegmentedButton(selected = tab == i, onClick = { tab = i }, shape = SegmentedButtonDefaults.itemShape(i, labels.size)) { Text(stringResource(l), maxLines = 1) }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer: the same monogram and spark as one tintable shape. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M33,32 h31 v7 h-22 v11.5 h17 v7 h-17 v11.5 h23 v7 h-32 z M78,21 Q79.5,29 87,30 Q79.5,31 78,39 Q76.5,31 69,30 Q76.5,29 78,21 z M30,82 h48 v2.5 h-48 z" />
+</vector>

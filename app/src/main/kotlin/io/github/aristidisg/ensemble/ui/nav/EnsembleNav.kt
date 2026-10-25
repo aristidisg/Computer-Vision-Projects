@@ -36,6 +36,7 @@ import io.github.aristidisg.ensemble.R
 import io.github.aristidisg.ensemble.ui.onboarding.OnboardingScreen
 import io.github.aristidisg.ensemble.ui.outfits.ComposerScreen
 import io.github.aristidisg.ensemble.ui.outfits.LookEditorScreen
+import io.github.aristidisg.ensemble.ui.outfits.LookbookScreen
 import io.github.aristidisg.ensemble.ui.outfits.LookMatchScreen
 import io.github.aristidisg.ensemble.ui.outfits.OutfitDetailScreen
 import io.github.aristidisg.ensemble.ui.outfits.OutfitsScreen
@@ -134,6 +135,7 @@ fun EnsembleNav(launch: LaunchRequest?, onLaunchHandled: () -> Unit) {
             composable<ScenarioEditorRoute> { ScenarioEditorScreen(it.toRoute<ScenarioEditorRoute>().id, nav) }
             composable<PersonalColorRoute> { PersonalColorScreen(nav) }
             composable<InsightsRoute> { InsightsScreen(nav) }
+            composable<LookbookRoute> { LookbookScreen(nav) }
             composable<ShoppingListRoute> { ShoppingListScreen(nav) }
             composable<RotationRoute> { RotationScreen(nav) }
             composable<LocationRoute> { LocationScreen(nav) }

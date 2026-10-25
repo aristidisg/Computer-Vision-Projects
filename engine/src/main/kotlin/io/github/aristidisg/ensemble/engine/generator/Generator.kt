@@ -7,6 +7,7 @@ import io.github.aristidisg.ensemble.engine.rules.Look
 import io.github.aristidisg.ensemble.engine.rules.Placed
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.engine.rules.Scorer
+import io.github.aristidisg.ensemble.engine.tables.StyleTables.Area
 import io.github.aristidisg.ensemble.engine.tables.TaxonomyTable
 import io.github.aristidisg.ensemble.engine.tables.WarmthTable
 import io.github.aristidisg.ensemble.model.Item
@@ -65,7 +66,10 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
         }.distinct()
         val feasible = forced.filter { s -> (!s.mid || pools[Slot.MID].orEmpty().isNotEmpty()) && (!s.outer || pools[Slot.OUTER].orEmpty().isNotEmpty()) }
         // Fall back to lighter structures when the wardrobe lacks layers.
-        return feasible.ifEmpty { listOf(Structure(false, false), Structure(true, false), Structure(false, true)).filter { s ->
+        // Locked layers stay in every structure.
+        return feasible.ifEmpty { listOf(Structure(false, false), Structure(true, false), Structure(false, true)).map { s ->
+            Structure(s.mid || Slot.MID in lockedSlots, s.outer || Slot.OUTER in lockedSlots)
+        }.distinct().filter { s ->
             (!s.mid || (allowMid && pools[Slot.MID].orEmpty().isNotEmpty())) && (!s.outer || (allowOuter && pools[Slot.OUTER].orEmpty().isNotEmpty()))
         } }
     }
@@ -136,6 +140,37 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
     /** Steps 1-5: complete scored candidates, best first, all passing outfit-level hard constraints. */
     fun candidates(wardrobe: List<Item>, locked: List<OutfitPiece> = emptyList()): List<ScoredOutfit> {
         val pools = pools(wardrobe, locked)
+        val shown = locked.filter { it.slot == Slot.TOP || it.slot == Slot.MID }
+        if (shown.isEmpty()) return search(pools, locked)
+        // A piece you picked has to show: a white tee you build around shouldn't vanish under a
+        // hoodie and a closed coat. First only layers that leave it fully visible, then (cold
+        // days, closed coats) at least not hidden twice over, and only then anything.
+        for ((strictOuter, minArea) in listOf(true to Area.VISIBLE, false to Area.TOP_UNDER_CLOSED)) {
+            val visible = search(revealing(pools, locked, strictOuter), locked).filter { c -> shows(c, shown, minArea) }
+            if (visible.isNotEmpty()) return visible
+        }
+        return search(pools, locked)
+    }
+
+    /** Pools without the layers that would cover a locked top (pullovers) or locked mid (closed coats). */
+    private fun revealing(pools: Map<Slot, List<Item>>, locked: List<OutfitPiece>, strictOuter: Boolean): Map<Slot, List<Item>> {
+        val lockedSlots = locked.map { it.slot }.toSet()
+        return pools.mapValues { (slot, pool) ->
+            when {
+                slot in lockedSlots -> pool
+                slot == Slot.MID && Slot.TOP in lockedSlots -> pool.filter { it.layering.canWearOpen }
+                slot == Slot.OUTER && strictOuter -> pool.filter { Look.wornOpen(it, ctx) }
+                else -> pool
+            }
+        }
+    }
+
+    private fun shows(c: ScoredOutfit, shown: List<OutfitPiece>, minArea: Double): Boolean {
+        val look = Look.of(c.pieces, ctx) ?: return false
+        return shown.all { p -> look.placed.any { it.item.id == p.itemId } && look.areaWeight(p.slot) >= minArea }
+    }
+
+    private fun search(pools: Map<Slot, List<Item>>, locked: List<OutfitPiece>): List<ScoredOutfit> {
         val seen = HashSet<String>()
         val out = ArrayList<ScoredOutfit>()
         for (st in structures(pools, locked)) {

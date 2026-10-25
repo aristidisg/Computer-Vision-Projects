@@ -7,7 +7,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -35,9 +33,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -104,15 +100,7 @@ fun TodayScreen(nav: NavHostController, vm: TodayViewModel = hiltViewModel()) {
                 }
                 WeatherPill(s, onRefresh = vm::refreshWeather, onManual = { manual = true }, modifier = Modifier.padding(top = 6.dp))
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                s.scenarios.forEach { sc ->
-                    FilterChip(selected = sc.id == s.scenario?.id, onClick = { vm.selectScenario(sc.id) }, label = { Text(sc.name) })
-                }
-                VerticalDivider(Modifier.height(24.dp))
-                FilterChip(selected = s.experiment, onClick = { vm.setExperiment(!s.experiment) }, label = { Text(stringResource(R.string.experiment)) })
-                FilterChip(selected = s.noMid, onClick = { vm.setNoMid(!s.noMid) }, label = { Text(stringResource(R.string.no_mid_layers)) })
-                FilterChip(selected = s.noOuter, onClick = { vm.setNoOuter(!s.noOuter) }, label = { Text(stringResource(R.string.no_outerwear)) })
-            }
+            TodayChips(s, vm, Modifier.padding(top = 6.dp))
             if (s.locked.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.locked_pieces, s.locked.mapNotNull { s.items[it.itemId]?.name }.joinToString()), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                 TextButton(onClick = vm::clearLocks) { Text(stringResource(R.string.clear_locks)) }
@@ -127,7 +115,7 @@ fun TodayScreen(nav: NavHostController, vm: TodayViewModel = hiltViewModel()) {
                     else -> SwipeDeck(s.cards, onSwipe = vm::swipe, modifier = Modifier.fillMaxSize()) { card ->
                         val sc = s.scenario
                         OutfitCard(
-                            card, s.items,
+                            card, s.items, cover = s.vogue,
                             onOpen = { if (sc != null) nav.navigate(OutfitDetailRoute(PiecesArg.encode(card.pieces), sc.id, s.epochDay)) },
                             actions = PieceActions(
                                 like = { vm.pieceThumb(card, it, true) },

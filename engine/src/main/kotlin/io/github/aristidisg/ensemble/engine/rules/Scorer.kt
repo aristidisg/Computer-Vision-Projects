@@ -25,6 +25,8 @@ data class ScoredOutfit(
     val violation: Violation? = null,
     /** The styling technique this outfit uses, if any (card headline, deck variety). */
     val technique: Technique? = null,
+    /** How to wear it (tuck, roll, cuff), at most two. */
+    val tips: List<Tip> = emptyList(),
 ) {
     val matchPct: Int get() = (total * 100).roundToInt()
     val itemIds: List<String> get() = pieces.map { it.itemId }
@@ -110,12 +112,9 @@ object Scorer {
             results += res("CUSTOM", RuleGroup.FORMALITY_STYLE, if (w > 0) 1.0 else 0.0, 0.0, Explain.CUSTOM_RULE, "name" to rule.name)
         }
         CollectionRules.influence(look, ctx)?.let { (bonus, line) -> total += bonus; results += line }
-        // Stylist techniques: a deliberate look scores higher (more so when experimenting).
+        // The stylist's layer: technique, mood and accent colour (see EditorialRules).
         val technique = StylistRules.technique(look, ctx)
-        if (technique != null) {
-            total += StylistRules.TECHNIQUE_BONUS * if (ctx.settings.experimentMode) 1.5 else 1.0
-            results += res("STYLE", RuleGroup.COLOR, 1.0, 0.0, Explain.TECHNIQUE, "id" to technique.name, "name" to technique.label, "blurb" to technique.blurb)
-        }
+        EditorialRules.apply(look, ctx, technique).let { e -> total += e.bonus; results += e.lines }
         // The seasons ticked on a piece: off-season core pieces cost Match (strongly, but not a
         // hard block, so a warm autumn day can still bring out linen if nothing else fits).
         val now = ctx.seasonsNow
@@ -130,7 +129,7 @@ object Scorer {
         fun impact(r: RuleResult) = weights[r.group]?.let { it * r.weight } ?: (r.weight * 0.1)
         val explained = results.filter { it.key != null && it.id != "SH7" }
         val why = explained.filter { it.score > 0.5 && it.key !in negativeKeys }
-            .sortedWith(compareByDescending<RuleResult> { impact(it) * (it.score - 0.5) + when (it.id) { "CUSTOM" -> 1.0; "STYLE" -> 0.8; "SAVED" -> 0.5; else -> 0.0 } }.thenBy { it.id }).take(3)
+            .sortedWith(compareByDescending<RuleResult> { impact(it) * (it.score - 0.5) + when (it.id) { "CUSTOM" -> 1.0; "STYLE" -> 0.8; "ACCENT" -> 0.9; "MOOD" -> 0.7; "SAVED" -> 0.5; else -> 0.0 } }.thenBy { it.id }).take(3)
         val trade = explained.filter { it.score < 0.5 || it.key in negativeKeys && it.score < 0.8 }
             .sortedWith(compareByDescending<RuleResult> { impact(it) * (0.5 - it.score + 0.5) }.thenBy { it.id }).take(2)
         val weatherLine = results.firstOrNull { it.key == Explain.WEATHER_LAYER } ?: results.firstOrNull { it.key == Explain.RAIN }
@@ -149,6 +148,7 @@ object Scorer {
             features = feats,
             newIdea = newIdea,
             technique = technique,
+            tips = StylingTips.tips(look, ctx),
         )
     }
 
@@ -169,7 +169,7 @@ object Scorer {
         Explain.SHOE_CLASH, Explain.SHOE_WEATHER_BAD, Explain.SHOE_REST, Explain.SHOE_DARKER, Explain.ACCESSORY_COUNT,
         Explain.BELT_MISSING, Explain.BELT_WRONG, Explain.HEADWEAR_OFF, Explain.TOO_COLD, Explain.TOO_WARM,
         Explain.RAIN_UNPROTECTED, Explain.ROTATION, Explain.NEAR_DUPLICATE, Explain.SEEN_RECENTLY, Explain.PLANNED_SOON,
-        Explain.LAUNDRY_DUE, Explain.LEARNED_DISLIKE, Explain.OUT_OF_SEASON,
+        Explain.LAUNDRY_DUE, Explain.LEARNED_DISLIKE, Explain.OUT_OF_SEASON, Explain.ACCENT_MISSING,
     )
 
     /** "You've liked {a} with {b} {n} times" for the strongest liked color-family pair. */

@@ -7,6 +7,7 @@ import io.github.aristidisg.ensemble.R
 import io.github.aristidisg.ensemble.engine.rules.Explain
 import io.github.aristidisg.ensemble.engine.rules.RuleResult
 import io.github.aristidisg.ensemble.engine.rules.Technique
+import io.github.aristidisg.ensemble.model.Mood
 
 /**
  * Explanation keys to text. The Appendix C4 templates live in strings.xml (translatable); other
@@ -31,6 +32,10 @@ object ExplainText {
         Explain.SILHOUETTE to (R.string.x_silhouette to emptyList()),
         Explain.PATTERN_ONE to (R.string.x_pattern_one to emptyList()),
         Explain.SHOE_REST to (R.string.x_shoe_rest to listOf("shoes")),
+        Explain.ACCENT to (R.string.x_accent to listOf("color")),
+        Explain.ACCENT_MISSING to (R.string.x_accent_missing to listOf("color")),
+        Explain.SIGNATURE_CARD to (R.string.x_signature_card to listOf("item")),
+        Explain.FRESH_PAIR to (R.string.x_fresh_pair to emptyList()),
     )
 
     fun render(r: RuleResult, res: Resources): String {
@@ -39,6 +44,10 @@ object ExplainText {
             val t = Technique.entries.firstOrNull { it.name == r.args["id"] } ?: return r.render()
             val (name, blurb) = TechniqueText.of(t)
             return res.getString(R.string.x_technique, res.getString(name), res.getString(blurb))
+        }
+        if (key == Explain.MOOD) {
+            val m = Mood.entries.firstOrNull { it.name == r.args["id"] }?.let { StyleText.moods[it] } ?: return r.render()
+            return res.getString(R.string.x_mood, res.getString(m))
         }
         val mapped = resources[key] ?: return r.render()
         val args = mapped.second.map { r.args[it] ?: "" }.toTypedArray()

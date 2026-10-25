@@ -14,6 +14,8 @@ object StyleTables {
         const val TOP_ALONE = 0.30
         const val TOP_UNDER_OPEN = 0.15
         const val TOP_UNDER_CLOSED = 0.08
+        /** Under a pullover and a closed coat: only a sliver of collar. */
+        const val TOP_FULLY_HIDDEN = 0.03
         const val MID = 0.25
         const val MID_UNDER_CLOSED = 0.10
         const val BOTTOM = 0.30

@@ -81,6 +81,16 @@ Actions is the build machine (see DECISIONS.md).
   - **Category picker** now splits Tops from Mid layers and labels Outer layers.
 - [x] **No-outerwear switch and Match by eye** (full-screen colour matcher: hue, lightness and
   saturation strips, plus fine drag).
+- [x] **Layering, stylist techniques, bold Today.**
+  - Layering: a top under a pullover mid layer (hoodie, sweatshirt, knit) counts as almost
+    hidden; under an open layer it still shows. The collage fades it and tags it "under".
+  - "No mid layers" chip on Today and switch in Style profile (locked mid layers still count).
+  - Ten stylist techniques (monochrome, tonal, colour block, sandwich, one statement,
+    high-low, soft layers, third piece, texture play, light & dark) score a bonus and head the
+    card. The deck mixes techniques and avoids repeating the same upper/bottom colours.
+  - Today redesign: compact date + weather pill header, one chip row, the card's collage as
+    the hero with technique headline, Match badge, palette dots and a colour wash; vermilion
+    accent. Fixes the squashed collage on small screens. The date is always in English.
 - [x] **Fresh outfits, experiment, colours, layers.**
   - Outfits shown in the last 3 days are held back.
   - ✦ Experiment mode.

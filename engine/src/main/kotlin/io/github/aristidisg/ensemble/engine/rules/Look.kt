@@ -49,11 +49,21 @@ class Look(val placed: List<Placed>, ctx: EngineContext) {
         w == OuterWeight.WARM || !it.layering.canWearOpen || ctx.weather.feelsMin < 12.0
     } ?: false
 
+    /**
+     * A pullover mid layer (hoodie, crewneck, sweatshirt) covers the top except collar and hem;
+     * only pieces that open (cardigan, overshirt, zip) let it show.
+     */
+    val midClosed: Boolean = mid?.let { !it.layering.canWearOpen } ?: false
+
+    /** True when the top barely shows (a tee under a hoodie or a closed coat). */
+    val topHidden: Boolean get() = top != null && (midClosed || (outer != null && outerClosed))
+
     fun areaWeight(slot: Slot): Double = when (slot) {
         Slot.OUTER -> if (outerClosed) Area.OUTER_CLOSED else Area.OUTER_OPEN
         Slot.TOP -> when {
             outer == null && mid == null -> Area.TOP_ALONE
-            outer != null && outerClosed -> Area.TOP_UNDER_CLOSED
+            midClosed && outer != null && outerClosed -> Area.TOP_FULLY_HIDDEN
+            midClosed || (outer != null && outerClosed) -> Area.TOP_UNDER_CLOSED
             else -> Area.TOP_UNDER_OPEN
         }
         Slot.MID -> if (outer != null && outerClosed) Area.MID_UNDER_CLOSED else Area.MID

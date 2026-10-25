@@ -77,9 +77,9 @@ class RotationTest {
 
     @Test fun `pieces shown in recent decks give way to others`() {
         val first = engine.generate(base, Fixtures.wardrobe).cards
-        // The top three cards' pieces were in every one of the last three decks.
-        val shown = coreIds(first.take(3)).toSet()
-        // Shown on 6 of the last 36 cards each: several times their fair share.
+        // The tops and bottoms of the top three cards were on 6 of the last 36 cards each.
+        fun topsBottoms(c: io.github.aristidisg.ensemble.engine.rules.ScoredOutfit) = c.pieces.filter { it.slot == Slot.TOP || it.slot == Slot.BOTTOM }.map { it.itemId }
+        val shown = first.take(3).flatMap(::topsBottoms).toSet()
         val seen = base.copy(recentDeckItems = shown.associateWith { 6 }, recentDeckCount = 36)
         val second = engine.generate(seen, Fixtures.wardrobe).cards
         val firstSigs = first.map { it.signature }.toSet()
@@ -87,10 +87,9 @@ class RotationTest {
         assertTrue(second.count { it.signature !in firstSigs } >= second.size / 2, "the deck barely changed")
         val newPieces = coreIds(second).toSet() - coreIds(first).toSet()
         assertTrue(newPieces.isNotEmpty(), "no piece missing from the first deck got a turn")
-        // Tops and bottoms (the pieces with real alternatives) move on from what was shown.
-        fun shownTopsBottoms(cards: List<io.github.aristidisg.ensemble.engine.rules.ScoredOutfit>) =
-            cards.flatMap { c -> c.pieces.filter { it.slot == Slot.TOP || it.slot == Slot.BOTTOM } }.count { it.itemId in shown }
-        assertTrue(shownTopsBottoms(second) < shownTopsBottoms(first), "shown tops/bottoms: ${shownTopsBottoms(first)} before, ${shownTopsBottoms(second)} after")
+        val before = first.flatMap(::topsBottoms).count { it in shown }
+        val after = second.flatMap(::topsBottoms).count { it in shown }
+        assertTrue(after < before, "shown tops/bottoms: $before before, $after after")
     }
 
     @Test fun `fair share penalizes reuse and overuse and rewards unused pieces`() {

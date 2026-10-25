@@ -150,6 +150,8 @@ data class Settings(
     val experimentMode: Boolean = false,
     /** No outer layers (jackets, coats) in suggestions: for indoor days or when you pick your own. */
     val outerwearOff: Boolean = false,
+    /** No mid layers (sweaters, hoodies, overshirts as a layer): the top shows on its own or under a jacket. */
+    val midLayersOff: Boolean = false,
     /** Pieces to buy, usually added from the gap finder. */
     val shoppingList: List<ShoppingEntry> = emptyList(),
 ) {

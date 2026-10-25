@@ -21,7 +21,8 @@ import io.github.aristidisg.ensemble.R
 
 /*
  * An achromatic interface that never tints how your clothes look: near-neutral greys, one ink
- * color for primary actions, and green / red / blue only on the swipe stamps.
+ * color for primary actions, green / red / blue only on the swipe stamps, and one bold "spark"
+ * accent (vermilion) for headlines and the Like button: never behind a piece of clothing.
  */
 
 private val LightColors = lightColorScheme(
@@ -55,7 +56,10 @@ private val DarkColors = darkColorScheme(
 )
 
 @Immutable
-data class EnsembleColors(val backdrop: Color, val like: Color, val nope: Color, val wear: Color)
+data class EnsembleColors(
+    val backdrop: Color, val like: Color, val nope: Color, val wear: Color,
+    val accent: Color = Color(0xFFE4472B), val onAccent: Color = Color.White,
+)
 
 val LocalEnsembleColors = staticCompositionLocalOf { EnsembleColors(Color(0xFFE9E9E7), Color(0xFF1B8A4B), Color(0xFFC62828), Color(0xFF1E5BD8)) }
 
@@ -88,12 +92,15 @@ val EnsembleTypography = Typography(
     labelSmall = base.labelSmall.copy(fontFamily = Inter, fontWeight = FontWeight.Medium),
 )
 
+/** Big editorial headline for the outfit card: the technique name. */
+val HeroStyle = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 32.sp, letterSpacing = (-0.5).sp)
+
 val StampStyle = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, letterSpacing = 3.sp)
 
 @Composable
 fun EnsembleTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val scheme: ColorScheme = if (dark) DarkColors else LightColors
-    val extra = if (dark) EnsembleColors(Color(0xFF2A2A2A), Color(0xFF4CC38A), Color(0xFFFF6B6B), Color(0xFF6EA0FF))
+    val extra = if (dark) EnsembleColors(Color(0xFF2A2A2A), Color(0xFF4CC38A), Color(0xFFFF6B6B), Color(0xFF6EA0FF), Color(0xFFFF6A4D), Color(0xFF1A0A06))
     else EnsembleColors(Color(0xFFE9E9E7), Color(0xFF1B8A4B), Color(0xFFC62828), Color(0xFF1E5BD8))
     androidx.compose.runtime.CompositionLocalProvider(LocalEnsembleColors provides extra) {
         MaterialTheme(colorScheme = scheme, typography = EnsembleTypography, content = content)

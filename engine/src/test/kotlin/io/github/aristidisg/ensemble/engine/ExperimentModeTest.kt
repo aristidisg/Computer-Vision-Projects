@@ -79,3 +79,21 @@ class OuterwearOffTest {
         assertTrue(deck.none { c -> c.pieces.any { it.slot == io.github.aristidisg.ensemble.model.Slot.OUTER } })
     }
 }
+
+class LayeringTest {
+    @Test fun `a tee under a hoodie barely shows, under an open overshirt it does`() {
+        val c = ctx("casual", Fixtures.weather(14.0, 18.0))
+        val hoodie = look(c, "tee-white", "hoodie-grey@MID", "jeans-dark", "white-sneakers")
+        val open = look(c, "tee-white", "overshirt-olive@MID", "jeans-dark", "white-sneakers")
+        assertTrue(hoodie.midClosed && hoodie.topHidden)
+        assertTrue(!open.midClosed && !open.topHidden)
+        assertTrue(hoodie.pieceArea.getValue("tee-white") < open.pieceArea.getValue("tee-white") / 1.5)
+    }
+
+    @Test fun `no mid layers when they are switched off, even in the cold`() {
+        val cold = ctx("casual", Fixtures.weather(4.0, 8.0)).copy(settings = Settings(midLayersOff = true))
+        val deck = OutfitEngine().generate(cold, Fixtures.wardrobe).cards
+        assertTrue(deck.isNotEmpty())
+        assertTrue(deck.none { c -> c.pieces.any { it.slot == io.github.aristidisg.ensemble.model.Slot.MID } })
+    }
+}

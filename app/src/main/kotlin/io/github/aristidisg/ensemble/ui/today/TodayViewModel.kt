@@ -58,6 +58,8 @@ data class TodayState(
     val experiment: Boolean = false,
     /** Outerwear switched off: no jackets or coats in suggestions. */
     val noOuter: Boolean = false,
+    /** Mid layers are switched off (Settings.midLayersOff). */
+    val noMid: Boolean = false,
 )
 
 @HiltViewModel
@@ -90,7 +92,7 @@ class TodayViewModel @Inject constructor(
             // Rebuild only when a newer forecast actually arrived.
             if (r.getOrNull()?.fetchedAtMillis?.let { it != before } == true) generate()
         }
-        viewModelScope.launch { settings.settings.collect { s -> _state.update { it.copy(experiment = s.experimentMode, noOuter = s.outerwearOff) } } }
+        viewModelScope.launch { settings.settings.collect { s -> _state.update { it.copy(experiment = s.experimentMode, noOuter = s.outerwearOff, noMid = s.midLayersOff) } } }
         viewModelScope.launch {
             var ids: Set<String>? = null
             wardrobe.items.collect { items ->
@@ -130,6 +132,13 @@ class TodayViewModel @Inject constructor(
     /** Outerwear on/off: a new deck straight away. */
     fun setNoOuter(on: Boolean) = viewModelScope.launch {
         settings.update { it.copy(outerwearOff = on) }
+        regenerate++
+        generate()
+    }
+
+    /** Mid layers on/off: a new deck straight away. */
+    fun setNoMid(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(midLayersOff = on) }
         regenerate++
         generate()
     }

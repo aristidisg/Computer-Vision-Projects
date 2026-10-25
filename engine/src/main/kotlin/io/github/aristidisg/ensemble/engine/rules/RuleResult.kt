@@ -94,6 +94,7 @@ enum class Explain(val template: String) {
     NEAR_DUPLICATE("Very close to an outfit you wore recently."),
     SEEN_RECENTLY("Shown in a recent deck."),
     FORGOTTEN("Gives the {item} some love: unworn for {n} days."),
+    TECHNIQUE("{name}: {blurb}"),
     OUT_OF_SEASON("The {item} is tagged for other seasons."),
     GIVE_IT_A_TURN("Giving the {item} a turn: it hasn't been suggested much lately."),
     PLANNED_SOON("The {item} is planned for the next few days."),

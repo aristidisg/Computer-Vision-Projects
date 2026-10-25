@@ -10,6 +10,7 @@ import io.github.aristidisg.ensemble.engine.rules.Look
 import io.github.aristidisg.ensemble.engine.rules.Placed
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.engine.rules.Scorer
+import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.Outfit
 import io.github.aristidisg.ensemble.model.OutfitPiece
@@ -115,7 +116,14 @@ object DeckBuilder {
         deckSize: Int = n, already: List<ScoredOutfit> = emptyList(),
     ): List<ScoredOutfit> {
         val jitter = cands.associate { it.signature to rng.nextDouble() * 0.01 }
-        val areas = cands.associate { c -> c.signature to (Look.of(c.pieces, ctx)?.pieceArea ?: emptyMap()) }
+        val looks = cands.associate { c -> c.signature to Look.of(c.pieces, ctx) }
+        val areas = looks.mapValues { (_, l) -> l?.pieceArea ?: emptyMap() }
+        // Colour story per card: upper-body and bottom families, for colour variety in the deck.
+        val palette = HashMap<String, Pair<ColorFamily?, ColorFamily?>>()
+        fun colorsOf(c: ScoredOutfit) = palette.getOrPut(c.signature) {
+            val l = looks[c.signature] ?: Look.of(c.pieces, ctx)
+            (l?.upperDominant?.family) to (l?.dominant(l.bottom)?.family)
+        }
         val chosen = ArrayList<ScoredOutfit>()
         val usage = HashMap<String, Int>()
         already.flatMap { c -> c.pieces.filter { it.slot.isCore } }.forEach { usage[it.itemId] = (usage[it.itemId] ?: 0) + 1 }
@@ -126,16 +134,26 @@ object DeckBuilder {
         val distinctTops = cands.mapNotNull { c -> c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId }.toSet().size
         while (chosen.size < n && pool.isNotEmpty()) {
             val labels = chosen.map { it.harmony.substringBefore(" ·") }.toSet()
+            val picked = chosen + already
+            val techniques = picked.mapNotNull { it.technique }.groupingBy { it }.eachCount()
+            val uppers = picked.mapNotNull { colorsOf(it).first }.groupingBy { it }.eachCount()
+            val bottoms = picked.mapNotNull { colorsOf(it).second }.groupingBy { it }.eachCount()
             val tops = chosen.mapNotNull { c -> c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId }
-            // Fair-share caps first; when every card left breaks one, the card breaking them least.
-            val allowed = fair.leastExcess(pool, usage)
-            val next = allowed.maxBy { c ->
+            // Breaking a fair-share cap costs heavily (not a filter), so when every card left breaks
+            // some cap, freshness and score still decide among them.
+            val next = pool.maxBy { c ->
                 val sim = (chosen + already).maxOfOrNull { similarity(c, it, areas.getValue(c.signature)) } ?: 0.0
                 val top = c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId
                 var div = 0.0
                 if (labels.size < 3 && c.harmony.substringBefore(" ·") !in labels) div += 0.05
                 if (distinctTops >= 4 && top != null && tops.count { it == top } >= 2) div -= 0.1
-                lambda * c.total - (1 - lambda) * sim + div - fair.penalty(c, usage) + (jitter[c.signature] ?: 0.0)
+                // A stylist's deck: techniques it hasn't shown yet, and no third blue top or
+                // third pair of grey trousers in a row.
+                if (picked.isNotEmpty()) c.technique?.let { t -> div += if (t !in techniques) TECHNIQUE_VARIETY else -TECHNIQUE_VARIETY * ((techniques[t] ?: 0) - 1).coerceAtLeast(0) }
+                val (up, down) = colorsOf(c)
+                if (up != null) div -= COLOR_REPEAT * ((uppers[up] ?: 0) - 1).coerceAtLeast(0)
+                if (down != null) div -= COLOR_REPEAT * ((bottoms[down] ?: 0) - 1).coerceAtLeast(0)
+                lambda * c.total - (1 - lambda) * sim + div - fair.penalty(c, usage) - EXCESS_PENALTY * fair.excess(c, usage) + (jitter[c.signature] ?: 0.0)
             }
             pool.remove(next)
             // The first card stays the best outfit as it is; later ones are rebalanced.
@@ -146,8 +164,16 @@ object DeckBuilder {
         return chosen
     }
 
+    /** Bonus for a technique new to this deck (and cost per repeat after the second). */
+    const val TECHNIQUE_VARIETY = 0.06
+    /** Cost per card past the first that repeats an upper-body (or bottom) colour family. */
+    const val COLOR_REPEAT = 0.05
+
+    /** Cost per use past a piece's fair-share cap in this deck. */
+    const val EXCESS_PENALTY = 0.4
+
     /** Score a card may lose when an over-used piece is swapped for a fresher one. */
-    const val REBALANCE_TOLERANCE = 0.08
+    const val REBALANCE_TOLERANCE = 0.12
 
     /**
      * When a card would push a piece past its fair-share cap, try the same card with that piece
@@ -166,10 +192,10 @@ object DeckBuilder {
             val options = slotPools[p.slot].orEmpty()
                 .filter { it !in inCard && (usage[it] ?: 0) < fair.cap(p.slot) }
                 .sortedWith(compareBy({ usage[it] ?: 0 }, { fair.overuse(it, p.slot) }, { it }))
-                .take(6)
+                .take(8)
             val swapped = options.mapNotNull { id ->
                 rescore(best.pieces.map { if (it.itemId == p.itemId && it.slot == p.slot) OutfitPiece(id, p.slot) else it }, ctx, byId, card.newIdea)
-            }.filter { it.total >= card.total - REBALANCE_TOLERANCE }.maxByOrNull { it.total }
+            }.filter { it.total >= card.total - REBALANCE_TOLERANCE && coreSignature(it) !in ctx.shownOutfits }.maxByOrNull { it.total }
             if (swapped != null) best = swapped
         }
         return best
@@ -188,9 +214,11 @@ object DeckBuilder {
         val taken = chosen.map { it.signature }.toMutableSet()
         val usage = chosen.flatMap { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId } }.groupingBy { it }.eachCount().toMutableMap()
         val fair = FairShare(cands, ctx, chosen.size + n)  // whole deck
-        // Novelty is summed per feature, so the rotation penalty is scaled to match.
+        // Novelty is the mean over the card's features (0..1: how little feedback they have), so the
+        // freshness of its pieces weighs as much as in the main cards.
         fun novelty(c: ScoredOutfit) =
-            c.features.sumOf { f -> val v = ctx.prefs.value(f); 1.0 / sqrt(1.0 + ((v?.pos ?: 0.0) + (v?.neg ?: 0.0))) } - fair.penalty(c, usage) * c.features.size
+            c.features.map { f -> val v = ctx.prefs.value(f); 1.0 / sqrt(1.0 + ((v?.pos ?: 0.0) + (v?.neg ?: 0.0))) }.average().takeIf { !it.isNaN() }.let { it ?: 0.0 } -
+                fair.penalty(c, usage)
         val out = ArrayList<ScoredOutfit>()
         repeat(n) {
             val open = cands.filter { it.signature !in taken }
@@ -241,8 +269,9 @@ object DeckBuilder {
         for (p in pieces) {
             if (out.size >= n) break
             if (out.any { o -> o.pieces.any { it.itemId == p.itemId } }) continue
+            // The rest of the outfit should be fresh too, not yesterday's pieces around a new one.
             val best = cands.filter { c -> c.signature !in taken && c.total >= floor && c.pieces.any { it.itemId == p.itemId } && !fair.exceedsCap(c, used) }
-                .maxByOrNull { it.total } ?: continue
+                .maxByOrNull { it.total - fair.penalty(it, used) } ?: continue
             best.pieces.filter { it.slot.isCore }.forEach { used[it.itemId] = (used[it.itemId] ?: 0) + 1 }
             val name = ctx.items[p.itemId]?.name?.lowercase() ?: continue
             taken += best.signature

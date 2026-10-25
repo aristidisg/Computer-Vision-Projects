@@ -6,6 +6,7 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.aristidisg.ensemble.R
 import io.github.aristidisg.ensemble.engine.rules.Explain
 import io.github.aristidisg.ensemble.engine.rules.RuleResult
+import io.github.aristidisg.ensemble.engine.rules.Technique
 
 /**
  * Explanation keys to text. The Appendix C4 templates live in strings.xml (translatable); other
@@ -34,6 +35,11 @@ object ExplainText {
 
     fun render(r: RuleResult, res: Resources): String {
         val key = r.key ?: return r.id
+        if (key == Explain.TECHNIQUE) {
+            val t = Technique.entries.firstOrNull { it.name == r.args["id"] } ?: return r.render()
+            val (name, blurb) = TechniqueText.of(t)
+            return res.getString(R.string.x_technique, res.getString(name), res.getString(blurb))
+        }
         val mapped = resources[key] ?: return r.render()
         val args = mapped.second.map { r.args[it] ?: "" }.toTypedArray()
         return res.getString(mapped.first, *args)

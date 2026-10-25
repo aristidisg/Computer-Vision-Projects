@@ -15,7 +15,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import io.github.aristidisg.ensemble.R
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -104,7 +109,19 @@ fun Collage(pieces: List<Pair<Item, Slot>>, modifier: Modifier = Modifier) {
     Box(modifier.clip(RoundedCornerShape(20.dp)).background(LocalEnsembleColors.current.backdrop).padding(12.dp)) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth().weight(1.1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                upper.forEach { ItemArt(it, Modifier.weight(1f).fillMaxSize()) }
+                // A top under a pullover mid layer barely shows: drawn faded and tagged "under".
+                val hiddenTop = bySlot[Slot.MID]?.first()?.layering?.canWearOpen == false
+                upper.forEach { item ->
+                    val under = hiddenTop && item == bySlot[Slot.TOP]?.first()
+                    Box(Modifier.weight(if (under) 0.7f else 1f).fillMaxSize()) {
+                        ItemArt(item, Modifier.fillMaxSize().alpha(if (under) 0.45f else 1f))
+                        if (under) Text(
+                            stringResource(R.string.worn_under), style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)).padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
             }
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 bySlot[Slot.BOTTOM]?.first()?.let { ItemArt(it, Modifier.weight(1.4f).fillMaxSize()) }

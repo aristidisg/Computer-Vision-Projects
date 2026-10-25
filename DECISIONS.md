@@ -230,3 +230,21 @@ Choices made where the spec left room, or where it was changed. Newest first.
     smooth), lightness on the left, saturation along the bottom.
   - Dragging on the colour field fine-tunes it (0.04° hue and 0.0006 value per pixel).
   - Done writes the exact code through the same path as typing it.
+- **Layering visibility.**
+  - A top's share of the look is 0.03 when both a pullover mid layer and a closed coat cover
+    it, the "under closed" share with one of them, and the "under open" share otherwise.
+  - Pullover = a mid layer whose Layering.canWearOpen is false.
+- **"Don't suggest mid layers"** works like the outerwear switch: structures drop MID unless it
+  is locked, and a scenario's required mid layer is waived.
+- **Stylist techniques** (StylistRules, data-driven checks on visible pieces).
+  - One technique per outfit, the most special first; bonus 0.03 raw (×1.5 in Experiment).
+  - The deck gives +0.06 to a technique it hasn't shown yet and −0.06 per repeat beyond two;
+    the first card is unaffected.
+  - Each repeated upper or bottom colour family costs 0.05, so "blue top, grey bottoms" can't
+    fill a deck.
+  - The fair-share cap became a cost (0.4 × excess) instead of a filter, so variety rules and
+    rotation can trade off instead of emptying the candidate list.
+  - Technique names and blurbs are strings.xml resources; the engine passes the enum id.
+- **Today layout.** The weather card became a pill in the header and day selection moved to a
+  menu on the date, freeing about 200 dp for the card. The accent colour sits only on UI
+  (badge, headline tags, Like button), never behind clothing photos.

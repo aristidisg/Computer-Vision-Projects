@@ -38,6 +38,7 @@ import io.github.aristidisg.ensemble.data.files.Backup
 import io.github.aristidisg.ensemble.data.files.BackupPreview
 import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
+import io.github.aristidisg.ensemble.domain.WardrobeCleaner
 import io.github.aristidisg.ensemble.work.AutoBackup
 import io.github.aristidisg.ensemble.ui.common.BackBar
 import io.github.aristidisg.ensemble.ui.common.SectionTitle
@@ -60,6 +61,7 @@ class DataViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val autoBackup: AutoBackup,
     private val time: TimeSource,
+    private val cleaner: WardrobeCleaner,
 ) : ViewModel() {
     val s = settings.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val _msg = MutableStateFlow<String?>(null)
@@ -86,6 +88,13 @@ class DataViewModel @Inject constructor(
 
     fun dismissPreview() { _preview.value = null }
 
+    fun seedDemo() = viewModelScope.launch { cleaner.seedDemo(); _msg.value = "✓" }
+
+    fun removeDemo() = viewModelScope.launch {
+        val n = cleaner.removeDemo()
+        _msg.value = app.getString(R.string.removed_n, n)
+    }
+
     fun deleteAll() = viewModelScope.launch { backup.deleteAll(); _msg.value = "✓" }
 
     fun setFolder(uri: Uri) = viewModelScope.launch {
@@ -108,6 +117,7 @@ fun DataScreen(nav: NavHostController, vm: DataViewModel = hiltViewModel()) {
     val msg by vm.msg.collectAsStateWithLifecycle()
     val preview by vm.preview.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf(false) }
+    var confirmDemo by remember { mutableStateOf(false) }
     var typed by remember { mutableStateOf("") }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { it?.let(vm::export) }
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::preview) }
@@ -127,6 +137,9 @@ fun DataScreen(nav: NavHostController, vm: DataViewModel = hiltViewModel()) {
                 OutlinedButton(onClick = vm::backupNow, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.backup_now)) }
                 TextButton(onClick = vm::disableAuto) { Text(stringResource(R.string.off)) }
             }
+            SectionTitle(stringResource(R.string.demo_wardrobe))
+            OutlinedButton(onClick = vm::seedDemo, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.seed_demo)) }
+            OutlinedButton(onClick = { confirmDemo = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.remove_demo)) }
             SectionTitle(stringResource(R.string.delete_all))
             OutlinedButton(onClick = { confirm = true }, modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) { Text(stringResource(R.string.delete_all), color = MaterialTheme.colorScheme.error) }
         }
@@ -140,6 +153,13 @@ fun DataScreen(nav: NavHostController, vm: DataViewModel = hiltViewModel()) {
             dismissButton = { TextButton(onClick = { vm.import(replace = false) }) { Text(stringResource(R.string.import_merge)) } },
         )
     }
+    if (confirmDemo) AlertDialog(
+        onDismissRequest = { confirmDemo = false },
+        title = { Text(stringResource(R.string.remove_demo)) },
+        text = { Text(stringResource(R.string.remove_demo_body)) },
+        confirmButton = { TextButton(onClick = { confirmDemo = false; vm.removeDemo() }) { Text(stringResource(R.string.delete)) } },
+        dismissButton = { TextButton(onClick = { confirmDemo = false }) { Text(stringResource(R.string.cancel)) } },
+    )
     if (confirm) AlertDialog(
         onDismissRequest = { confirm = false },
         title = { Text(stringResource(R.string.delete_all)) },

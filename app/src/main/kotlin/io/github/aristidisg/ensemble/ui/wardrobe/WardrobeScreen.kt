@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -160,6 +161,7 @@ private fun <T> Set<T>.toggle(t: T): Set<T> = if (t in this) this - t else this 
 private fun BulkBar(n: Int, vm: WardrobeViewModel) {
     var status by remember { mutableStateOf(false) }
     var season by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     Surface(tonalElevation = 3.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.selected_n, n), modifier = Modifier.weight(1f))
@@ -177,7 +179,15 @@ private fun BulkBar(n: Int, vm: WardrobeViewModel) {
                     DropdownMenuItem(text = { Text(Season.entries.joinToString(" · ") { it.label.take(3) }) }, onClick = { season = false; vm.bulkSeasons(Season.entries.toSet()) })
                 }
             }
+            TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             TextButton(onClick = vm::clearSelection) { Text(stringResource(R.string.cancel)) }
         }
     }
+    if (confirmDelete) AlertDialog(
+        onDismissRequest = { confirmDelete = false },
+        title = { Text(stringResource(R.string.delete_selected_q, n)) },
+        text = { Text(stringResource(R.string.delete_selected_body)) },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; vm.bulkDelete() }) { Text(stringResource(R.string.delete)) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } },
+    )
 }

@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
+import io.github.aristidisg.ensemble.domain.WardrobeCleaner
 import io.github.aristidisg.ensemble.engine.color.ColorScience
 import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.Item
@@ -48,6 +49,7 @@ class WardrobeViewModel @Inject constructor(
     private val wardrobe: WardrobeRepository,
     wear: WearRepository,
     private val time: TimeSource,
+    private val cleaner: WardrobeCleaner,
 ) : ViewModel() {
     private val filter = MutableStateFlow(WardrobeFilter())
     private val selected = MutableStateFlow(emptySet<String>())
@@ -92,6 +94,12 @@ class WardrobeViewModel @Inject constructor(
             val l = if (status == ItemStatus.AVAILABLE && i.status == ItemStatus.LAUNDRY) i.laundry.copy(wearsSinceWash = 0) else i.laundry
             wardrobe.upsert(i.copy(status = status, laundry = l), time.nowMillis())
         }
+        clearSelection()
+    }
+
+    /** Deletes the selected pieces with their photos and the outfits and plans that use them. */
+    fun bulkDelete() = viewModelScope.launch {
+        cleaner.delete(selected.value)
         clearSelection()
     }
 

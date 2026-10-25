@@ -57,13 +57,15 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
             else -> listOf(Structure(true, true))
         }
         val lockedSlots = locked.map { it.slot }.toSet()
-        val forced = opts.map { s ->
+        // Outerwear switched off: no outer layer unless one is locked in by hand.
+        val allowOuter = !ctx.settings.outerwearOff || Slot.OUTER in lockedSlots
+        val forced = opts.map { s -> if (allowOuter) s else s.copy(outer = false) }.distinct().map { s ->
             Structure(s.mid || Slot.MID in lockedSlots, s.outer || Slot.OUTER in lockedSlots)
         }.distinct()
         val feasible = forced.filter { s -> (!s.mid || pools[Slot.MID].orEmpty().isNotEmpty()) && (!s.outer || pools[Slot.OUTER].orEmpty().isNotEmpty()) }
         // Fall back to lighter structures when the wardrobe lacks layers.
         return feasible.ifEmpty { listOf(Structure(false, false), Structure(true, false), Structure(false, true)).filter { s ->
-            (!s.mid || pools[Slot.MID].orEmpty().isNotEmpty()) && (!s.outer || pools[Slot.OUTER].orEmpty().isNotEmpty())
+            (!s.mid || pools[Slot.MID].orEmpty().isNotEmpty()) && (!s.outer || (allowOuter && pools[Slot.OUTER].orEmpty().isNotEmpty()))
         } }
     }
 

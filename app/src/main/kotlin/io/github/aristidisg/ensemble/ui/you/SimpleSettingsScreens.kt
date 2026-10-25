@@ -55,6 +55,7 @@ fun StyleProfileScreen(nav: NavHostController, vm: SettingsViewModel = hiltViewM
         SectionTitle(stringResource(R.string.strictness))
         ChoiceChips(Strictness.entries, setOf(s.strictness), { it.label }, vm::setStrictness)
         SliderRow(stringResource(R.string.boldness), s.boldness.toFloat(), 0f..1f, { v -> vm.update { it.copy(boldness = v.toDouble()) } }, { "${(it * 100).roundToInt()}%" })
+        SwitchRow(stringResource(R.string.outerwear_off_title), s.outerwearOff, { v -> vm.update { it.copy(outerwearOff = v) } }, stringResource(R.string.outerwear_off_body))
         SwitchRow(stringResource(R.string.experiment_title), s.experimentMode, { v -> vm.update { it.copy(experimentMode = v) } }, stringResource(R.string.experiment_body))
         SectionTitle(stringResource(R.string.styles))
         StyleTag.entries.forEach { t ->

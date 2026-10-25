@@ -56,6 +56,8 @@ data class TodayState(
     val weatherError: String? = null,
     /** Experiment mode: bolder, more creative suggestions. */
     val experiment: Boolean = false,
+    /** Outerwear switched off: no jackets or coats in suggestions. */
+    val noOuter: Boolean = false,
 )
 
 @HiltViewModel
@@ -88,7 +90,7 @@ class TodayViewModel @Inject constructor(
             // Rebuild only when a newer forecast actually arrived.
             if (r.getOrNull()?.fetchedAtMillis?.let { it != before } == true) generate()
         }
-        viewModelScope.launch { settings.settings.collect { s -> _state.update { it.copy(experiment = s.experimentMode) } } }
+        viewModelScope.launch { settings.settings.collect { s -> _state.update { it.copy(experiment = s.experimentMode, noOuter = s.outerwearOff) } } }
         viewModelScope.launch {
             var ids: Set<String>? = null
             wardrobe.items.collect { items ->
@@ -124,6 +126,13 @@ class TodayViewModel @Inject constructor(
     }
 
     fun more() { regenerate++; generate() }
+
+    /** Outerwear on/off: a new deck straight away. */
+    fun setNoOuter(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(outerwearOff = on) }
+        regenerate++
+        generate()
+    }
 
     /** Experiment on/off: a new deck straight away in the new mode. */
     fun setExperiment(on: Boolean) = viewModelScope.launch {

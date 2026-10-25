@@ -148,6 +148,8 @@ data class Settings(
      * like". Known clashes and hard rules (weather, occasion, laundry) still apply.
      */
     val experimentMode: Boolean = false,
+    /** No outer layers (jackets, coats) in suggestions: for indoor days or when you pick your own. */
+    val outerwearOff: Boolean = false,
     /** Pieces to buy, usually added from the gap finder. */
     val shoppingList: List<ShoppingEntry> = emptyList(),
 ) {

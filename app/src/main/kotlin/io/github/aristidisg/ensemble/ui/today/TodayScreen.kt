@@ -88,6 +88,7 @@ fun TodayScreen(nav: NavHostController, vm: TodayViewModel = hiltViewModel()) {
                 FilterChip(selected = s.epochDay == s.today + 1, onClick = { vm.selectDay(s.today + 1) }, label = { Text(stringResource(R.string.tomorrow)) })
                 FilterChip(selected = s.epochDay > s.today + 1, onClick = { datePicker = true }, label = { Text(stringResource(R.string.pick_date)) })
                 FilterChip(selected = s.experiment, onClick = { vm.setExperiment(!s.experiment) }, label = { Text(stringResource(R.string.experiment)) })
+                FilterChip(selected = s.noOuter, onClick = { vm.setNoOuter(!s.noOuter) }, label = { Text(stringResource(R.string.no_outerwear)) })
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 s.scenarios.forEach { sc ->

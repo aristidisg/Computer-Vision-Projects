@@ -481,4 +481,9 @@
     <string name="experiment">✦ Experiment</string>
     <string name="experiment_title">Experiment with style</string>
     <string name="experiment_body">Bolder colours, looser style rules, more new ideas and less of what you usually pick. Clashes, weather and the occasion still count.</string>
+    <string name="no_outerwear">No jackets</string>
+    <string name="outerwear_off_title">Don\'t suggest outerwear</string>
+    <string name="outerwear_off_body">Outfits without jackets or coats, whatever the weather. Lock a jacket into an outfit to add one by hand.</string>
+    <string name="match_by_eye">Match by eye</string>
+    <string name="match_hint">Hold the phone next to the piece in daylight. Right: colour. Left: light or dark. Bottom: how vivid. Drag on the colour itself for fine steps.</string>
 </resources>

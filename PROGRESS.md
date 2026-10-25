@@ -79,6 +79,8 @@ Actions is the build machine (see DECISIONS.md).
     Each flag has a one-tap fix, a picker and "It's right". Every mid and outer layer is also
     listed for a manual pass.
   - **Category picker** now splits Tops from Mid layers and labels Outer layers.
+- [x] **No-outerwear switch and Match by eye** (full-screen colour matcher: hue, lightness and
+  saturation strips, plus fine drag).
 - [x] **Fresh outfits, experiment, colours, layers.**
   - Outfits shown in the last 3 days are held back.
   - ✦ Experiment mode.
@@ -134,7 +136,7 @@ Actions is the build machine (see DECISIONS.md).
 
 ## Tests
 
-- :engine — 130 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
+- :engine — 132 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,

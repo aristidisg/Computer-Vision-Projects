@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -99,6 +100,9 @@ private fun ColorRow(index: Int, c: ItemColor, removable: Boolean, vm: ItemEdito
                 keyboardActions = KeyboardActions(onDone = { vm.setColorHex(index, text) }),
                 modifier = Modifier.weight(1f),
             )
+            var matching by remember { mutableStateOf(false) }
+            IconButton(onClick = { matching = true }) { Icon(Icons.Outlined.Palette, stringResource(R.string.match_by_eye)) }
+            if (matching) ColorMatchDialog(c.hex, onDismiss = { matching = false }) { hex -> matching = false; vm.setColorHex(index, hex) }
             IconButton(onClick = { vm.removeColor(index) }, enabled = removable) { Icon(Icons.Outlined.Close, stringResource(R.string.remove_color)) }
         }
         Text(
@@ -125,6 +129,9 @@ private fun AddColorRow(vm: ItemEditorViewModel) {
             keyboardActions = KeyboardActions(onDone = { if (vm.addColor(text)) text = "" }),
             modifier = Modifier.weight(1f),
         )
+        var matching by remember { mutableStateOf(false) }
+        IconButton(onClick = { matching = true }) { Icon(Icons.Outlined.Palette, stringResource(R.string.match_by_eye)) }
+        if (matching) ColorMatchDialog(parsed ?: "#808080", onDismiss = { matching = false }) { hex -> matching = false; vm.addColor(hex) }
         OutlinedButton(onClick = { if (vm.addColor(text)) text = "" }, enabled = parsed != null) { Text(stringResource(R.string.add)) }
     }
 }

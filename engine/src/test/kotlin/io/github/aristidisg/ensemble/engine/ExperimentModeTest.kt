@@ -62,3 +62,20 @@ class SeasonTagTest {
         assertTrue(s.results.none { it.key == Explain.OUT_OF_SEASON })
     }
 }
+
+class OuterwearOffTest {
+    @Test fun `no outer layers when outerwear is off, even in the cold`() {
+        val cold = ctx("casual", Fixtures.weather(4.0, 8.0))
+        assertTrue(OutfitEngine().generate(cold, Fixtures.wardrobe).cards.any { c -> c.pieces.any { it.slot == io.github.aristidisg.ensemble.model.Slot.OUTER } })
+        val off = cold.copy(settings = Settings(outerwearOff = true))
+        val deck = OutfitEngine().generate(off, Fixtures.wardrobe).cards
+        assertTrue(deck.isNotEmpty())
+        assertTrue(deck.none { c -> c.pieces.any { it.slot == io.github.aristidisg.ensemble.model.Slot.OUTER } })
+    }
+
+    @Test fun `a scenario that needs a jacket still works with outerwear off`() {
+        val formal = ctx("business_formal", Fixtures.weather(14.0, 18.0)).copy(settings = Settings(outerwearOff = true))
+        val deck = OutfitEngine().generate(formal, Fixtures.wardrobe).cards
+        assertTrue(deck.none { c -> c.pieces.any { it.slot == io.github.aristidisg.ensemble.model.Slot.OUTER } })
+    }
+}

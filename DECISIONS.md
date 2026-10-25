@@ -219,3 +219,14 @@ Choices made where the spec left room, or where it was changed. Newest first.
   - Each colour is the median of its pixels after trimming the darkest 25 % and brightest
     10 %.
   - Wardrobe multi-select has "Re-read colours" for pieces added before.
+- **"Don't suggest outerwear"** (Today "No jackets" chip, Style profile switch).
+  - Structures drop the outer layer, even in the cold, unless a jacket is locked in by hand.
+  - A scenario's required jacket is waived.
+  - The weather rules still score warmth, so mid layers fill in.
+- **Match by eye** (palette icon on each colour, and next to "Add a colour").
+  - The whole screen becomes the colour, at full brightness and kept awake, so the phone can be
+    held next to the piece.
+  - HSV controls follow the finger from the first touch: hue column on the right (37 stops,
+    smooth), lightness on the left, saturation along the bottom.
+  - Dragging on the colour field fine-tunes it (0.04° hue and 0.0006 value per pixel).
+  - Done writes the exact code through the same path as typing it.

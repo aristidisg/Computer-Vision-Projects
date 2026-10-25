@@ -58,6 +58,12 @@
     <string name="empty_progress">%1$d tops · %2$d bottoms · %3$d shoes</string>
     <string name="add_pieces">Add pieces</string>
     <string name="seed_demo">Seed demo wardrobe</string>
+    <string name="remove_demo">Remove demo wardrobe</string>
+    <string name="remove_demo_body">Deletes the example pieces and the outfits and plans that use them. Pieces you added stay.</string>
+    <string name="removed_n">Removed %1$d example pieces.</string>
+    <string name="demo_wardrobe">Demo wardrobe</string>
+    <string name="delete_selected_q">Delete %1$d pieces?</string>
+    <string name="delete_selected_body">Their photos and the saved outfits and plans that use them are deleted too. This can\'t be undone.</string>
     <string name="generating">Putting outfits together…</string>
     <string name="no_valid">No outfit fits this scenario and weather with your current wardrobe.</string>
     <string name="stamp_like">LIKE</string>

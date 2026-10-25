@@ -87,6 +87,21 @@ Choices made where the spec left room, or where it was changed. Newest first.
 - **The shopping list lives in Settings**, so it is included in export and backup with no new
   Room table or migration. The same piece in the same colour is listed once, and adding it
   again refreshes its count.
+- **Rotation counts what was shown, not only what was worn.**
+  - Most people swipe more than they log wears, so wear-based rotation (R1) alone let the same
+    high-scoring pieces win every day.
+  - The deck log now stores each card's pieces; older entries hold only signatures and still
+    load.
+  - Diversification (MMR) subtracts 0.05 for each earlier card in the deck that used the same
+    piece.
+  - It also subtracts up to 0.25 for a card whose pieces were all in the last 5 decks.
+  - This lives in deck building, not in the rule groups, so Match % still means "how good is
+    this outfit".
+- **Coverage over pure score.** The beam keeps the best partial outfit for every piece, and the
+  candidate list keeps the best outfit per core piece next to the top 200.
+- **Clashes are data.** `ColorTables.clashes` lists family pairs that read badly even when hue
+  harmony likes them. C7 scores them 0.15 with weight 4. The list is deliberately short; anything
+  else is left to your swipes and custom rules.
 - **"Wear it again"** lists liked outfits:
   - worn at least once;
   - off cooldown (per outfit, or the global setting);

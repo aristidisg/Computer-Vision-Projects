@@ -83,23 +83,32 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
                 return emptyList()
             }
             val next = ArrayList<Partial>()
+            fun extend(p: Partial, item: Item): Partial {
+                val placed = Placed(item, slot)
+                val s = (if (p.pieces.isEmpty()) 0.75 else p.pieces.sumOf { pairs.score(it, placed) } / p.pieces.size) + rng.nextDouble() * 0.04
+                val n = p.pieces.size
+                return Partial(p.pieces + placed, if (n == 0) s else (p.score * n + s) / (n + 1))
+            }
             for (p in beam) {
                 val used = p.pieces.map { it.item.id }.toSet()
-                val cands = pool.asSequence()
+                next += pool.asSequence()
                     .filter { it.id !in used && fits(slot, it, p.pieces) }
-                    .map { item ->
-                        val placed = Placed(item, slot)
-                        val s = if (p.pieces.isEmpty()) 0.75 else p.pieces.sumOf { pairs.score(it, placed) } / p.pieces.size
-                        placed to s + rng.nextDouble() * 0.04
-                    }
-                    .sortedByDescending { it.second }
+                    .map { extend(p, it) }
+                    .sortedByDescending { it.score }
                     .take(cfg.candidatesPerStep)
-                for ((placed, s) in cands) {
-                    val n = p.pieces.size
-                    next += Partial(p.pieces + placed, if (n == 0) s else (p.score * n + s) / (n + 1))
-                }
             }
-            beam = next.sortedByDescending { it.score }.take(cfg.beamWidth)
+            // Coverage: every piece in the pool gets at least one partial, built on the best
+            // partial it fits, so pieces with modest pair scores are never silently dropped.
+            val placedIds = next.map { it.pieces.last().item.id }.toHashSet()
+            for (item in pool) {
+                if (item.id in placedIds) continue
+                val host = beam.firstOrNull { p -> p.pieces.none { it.item.id == item.id } && fits(slot, item, p.pieces) } ?: continue
+                next += extend(host, item)
+            }
+            val ranked = next.sortedByDescending { it.score }
+            // The best partial holding each piece survives later steps too, not just this one.
+            val bestPerItem = ranked.flatMap { p -> p.pieces.map { it.item.id to p } }.distinctBy { it.first }.map { it.second }
+            beam = (ranked.take(cfg.beamWidth) + bestPerItem).distinct()
             if (beam.isEmpty()) return emptyList()
         }
         return beam.map { it.pieces }
@@ -132,7 +141,13 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
                 out += Scorer.score(look, ctx)
             }
         }
-        return out.sortedWith(compareByDescending<ScoredOutfit> { it.total }.thenBy { it.signature }).take(cfg.keepTop)
+        val ranked = out.sortedWith(compareByDescending<ScoredOutfit> { it.total }.thenBy { it.signature })
+        // Keep the best outfit for every core piece too, so the deck can rotate the whole wardrobe.
+        val bestPerItem = ranked.flatMap { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId to c } }
+            .distinctBy { it.first }.map { it.second }
+        val top = ranked.take(cfg.keepTop)
+        val keep = (top + bestPerItem).distinctBy { it.signature }
+        return keep.sortedWith(compareByDescending<ScoredOutfit> { it.total }.thenBy { it.signature })
     }
 
     companion object {

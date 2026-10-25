@@ -95,11 +95,30 @@ object DeckBuilder {
         return shared + sameHarmony
     }
 
+    /** Penalty per earlier card in this deck that already uses the same core piece. */
+    const val REUSE_PENALTY = 0.05
+    /** Penalty for a card whose core pieces were all shown in every recent deck. */
+    const val EXPOSURE_PENALTY = 0.25
+
+    /**
+     * Rotation across decks and within one: pieces already used in this deck, or shown in most
+     * recent decks, make a card less attractive, so forgotten pieces get their turn even when
+     * nothing is logged as worn.
+     */
+    fun rotationPenalty(c: ScoredOutfit, usage: Map<String, Int>, ctx: EngineContext): Double {
+        val core = c.pieces.filter { it.slot.isCore }.map { it.itemId }
+        if (core.isEmpty()) return 0.0
+        val reuse = core.sumOf { usage[it] ?: 0 } * REUSE_PENALTY
+        val exposure = core.sumOf { ctx.exposure(it) } / core.size * EXPOSURE_PENALTY
+        return reuse + exposure
+    }
+
     /** Step 7: maximal marginal relevance, nudged toward 3+ harmony labels and 4+ different tops. */
     fun mmr(cands: List<ScoredOutfit>, n: Int, ctx: EngineContext, byId: Map<String, Item>, lambda: Double, rng: SeededRandom): List<ScoredOutfit> {
         val jitter = cands.associate { it.signature to rng.nextDouble() * 0.01 }
         val areas = cands.associate { c -> c.signature to (Look.of(c.pieces, ctx)?.pieceArea ?: emptyMap()) }
         val chosen = ArrayList<ScoredOutfit>()
+        val usage = HashMap<String, Int>()
         val pool = cands.toMutableList()
         val distinctTops = cands.mapNotNull { c -> c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId }.toSet().size
         while (chosen.size < n && pool.isNotEmpty()) {
@@ -111,10 +130,11 @@ object DeckBuilder {
                 var div = 0.0
                 if (labels.size < 3 && c.harmony.substringBefore(" ·") !in labels) div += 0.05
                 if (distinctTops >= 4 && top != null && tops.count { it == top } >= 2) div -= 0.1
-                lambda * c.total - (1 - lambda) * sim + div + (jitter[c.signature] ?: 0.0)
+                lambda * c.total - (1 - lambda) * sim + div - rotationPenalty(c, usage, ctx) + (jitter[c.signature] ?: 0.0)
             }
             chosen += next
             pool.remove(next)
+            next.pieces.filter { it.slot.isCore }.forEach { usage[it.itemId] = (usage[it.itemId] ?: 0) + 1 }
         }
         return chosen
     }
@@ -125,9 +145,12 @@ object DeckBuilder {
         val sorted = cands.map { it.total }.sorted()
         val p70 = sorted[(sorted.size * 0.7).toInt().coerceAtMost(sorted.lastIndex)]
         val taken = chosen.map { it.signature }.toSet()
+        val chosenUsage = chosen.flatMap { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId } }.groupingBy { it }.eachCount()
         return cands.filter { it.total >= p70 && it.signature !in taken }
             .sortedWith(compareByDescending<ScoredOutfit> { c ->
-                c.features.sumOf { f -> val v = ctx.prefs.value(f); 1.0 / sqrt(1.0 + ((v?.pos ?: 0.0) + (v?.neg ?: 0.0))) }
+                // Novelty is summed per feature, so the rotation penalty is scaled to match.
+                c.features.sumOf { f -> val v = ctx.prefs.value(f); 1.0 / sqrt(1.0 + ((v?.pos ?: 0.0) + (v?.neg ?: 0.0))) } -
+                    rotationPenalty(c, chosenUsage, ctx) * c.features.size
             }.thenBy { it.signature })
             .take(n).map { it.copy(newIdea = true) }
     }

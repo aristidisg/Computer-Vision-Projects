@@ -10,6 +10,8 @@ import io.github.aristidisg.ensemble.data.repo.FeedbackRepository
 import io.github.aristidisg.ensemble.data.repo.OutfitRepository
 import io.github.aristidisg.ensemble.data.repo.RuleRepository
 import io.github.aristidisg.ensemble.data.repo.DataJson
+import io.github.aristidisg.ensemble.data.repo.DeckCardLog
+import io.github.aristidisg.ensemble.data.repo.DeckLog
 import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.weather.OpenMeteoClient
@@ -125,6 +127,15 @@ class DataLayerTest {
         val entry = ShoppingEntry("e", Subcategory.CHINOS, ColorFamily.OLIVE, "#6B6B3A", unlocks = 4)
         val withList = Settings(shoppingList = listOf(entry))
         assertEquals(withList, DataJson.decodeFromString(Settings.serializer(), DataJson.encodeToString(Settings.serializer(), withList)))
+    }
+
+    @Test fun deckLogReadsOldAndNewFormats() {
+        assertEquals(listOf(DeckCardLog("abc"), DeckCardLog("def")), DeckLog.decode("[\"abc\",\"def\"]"))
+        val cards = listOf(DeckCardLog("s1", listOf("tee", "jeans")), DeckCardLog("s2", listOf("tee", "chinos")))
+        assertEquals(cards, DeckLog.decode(DeckLog.encode(cards)))
+        assertTrue(DeckLog.decode("not json").isEmpty())
+        // Counted once per deck, however many cards in it used the piece.
+        assertEquals(mapOf("tee" to 2, "jeans" to 1, "chinos" to 1), DeckLog.exposure(listOf(cards, listOf(DeckCardLog("s3", listOf("tee"))))))
     }
 
     @Test fun parsesRecordedForecast() {

@@ -56,10 +56,19 @@ Actions is the build machine (see DECISIONS.md).
   - **Wardrobe routines.** Seasonal swap, a shopping list fed by the gap finder, and a
     "Wear it again" row in Outfits → Saved.
   - **Layout.** Rows that squeezed text into one letter per line now wrap or scroll.
+- [x] **Rotation and colour clashes.**
+  - **Deck rotation without wear logs.** Each deck remembers the pieces it showed. Pieces shown
+    in most of the last 5 decks give way, and a card loses points for every piece already used
+    in the same deck.
+  - **No forgotten pieces.** The beam search keeps at least one outfit for every eligible
+    piece, so pieces with modest pairing scores still reach the deck.
+  - **Clash table.** Olive, forest or Kelly green with pink or dusty pink (rose), and bright
+    green with red, are known clashes. C7 now weighs them heavily, even when the hue maths
+    rates them as complementary.
 
 ## Tests
 
-- :engine — 88 tests (colour edits, seasonal swap, wear again and shopping list included): color conversions against reference values, artist-hue anchors,
+- :engine — 96 tests (colour edits, seasonal swap, wear again, shopping list, clashes and rotation included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,
@@ -67,7 +76,7 @@ Actions is the build machine (see DECISIONS.md).
   (~0.3 s on a desktop JVM; limit 1.5 s).
 - :data — Robolectric: items round trip, outfits by signature, stats = rebuild, scenario
   overlay, export → delete → import, Open-Meteo parsing from recorded fixtures, settings
-  saved before the shopping list existed still load.
+  saved before the shopping list existed still load, deck log reads old and new formats.
 
 ## Next
 

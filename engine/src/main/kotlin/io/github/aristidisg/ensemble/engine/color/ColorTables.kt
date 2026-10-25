@@ -94,9 +94,19 @@ object ColorTables {
         put(denims, listOf(OLIVE), 0.80); put(denims, listOf(BLACK), 0.75); put(denims, listOf(NAVY), 0.70)
     }
 
+    /**
+     * Pairs that read as a clash even when the hue math calls them complementary: olive or green
+     * with pink reads muddy, bright green with red reads like a costume. C7 weighs these heavily.
+     */
+    val clashes: Map<Set<ColorFamily>, Double> = buildMap {
+        for (g in listOf(OLIVE, FOREST_GREEN, KELLY_GREEN)) for (p in listOf(PINK, DUSTY_PINK)) put(setOf(g, p), 0.15)
+        for (g in listOf(FOREST_GREEN, KELLY_GREEN)) put(setOf(g, RED), 0.15)
+    }
+
     /** Affinity for a pair of families, or null when the color math alone should decide. */
     fun affinity(a: ColorFamily, b: ColorFamily): Double? {
         if (a == b) return null
+        clashes[setOf(a, b)]?.let { return it }
         affinities[setOf(a, b)]?.let { return it }
         return if (isNeutralFamily(a) && isNeutralFamily(b)) 0.75 else null
     }

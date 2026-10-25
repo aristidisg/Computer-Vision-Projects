@@ -21,8 +21,12 @@ object ColorPairRules {
         pair(look.outer, look.bottom),
         pair(look.bottom, look.shoes),
         pair(look.outer, look.top ?: look.mid),
+        pair(look.outer, look.mid).takeIf { look.top != null },
         pair(look.mid, look.top),
     )
+
+    /** C7 weight when a pair is a known clash: enough to sink an outfit the hue math likes. */
+    private const val CLASH_WEIGHT = 4.0
 
     private fun pair(a: Item?, b: Item?) = if (a != null && b != null) a to b else null
 
@@ -37,6 +41,8 @@ object ColorPairRules {
         val best = scored.maxBy { it.third }
         val worst = scored.minBy { it.third }
         return when {
+            ColorTables.clashes.containsKey(setOf(worst.first, worst.second)) ->
+                res("C7", G, worst.third, CLASH_WEIGHT, Explain.UNUSUAL_PAIR, "a" to worst.first.label, "b" to worst.second.label.lowercase())
             worst.third <= 0.5 -> res("C7", G, mean, 1.0, Explain.UNUSUAL_PAIR, "a" to worst.first.label, "b" to worst.second.label.lowercase())
             best.third >= 0.9 -> res("C7", G, mean, 1.0, Explain.CLASSIC_PAIR, "a" to best.first.label, "b" to best.second.label.lowercase())
             else -> res("C7", G, mean)

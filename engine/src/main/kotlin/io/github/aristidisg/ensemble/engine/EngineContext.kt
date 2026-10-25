@@ -57,6 +57,9 @@ data class EngineContext(
     val plannedSoon: Set<String> = emptySet(),
     /** Signatures shown in the last 3 decks (R4). */
     val recentDeckSignatures: Set<String> = emptySet(),
+    /** Per item: in how many of the last [recentDeckCount] decks it was shown (deck rotation). */
+    val recentDeckItems: Map<String, Int> = emptyMap(),
+    val recentDeckCount: Int = 0,
     /** Outfit signatures the user explicitly allowed despite a cooldown ("Use anyway"). */
     val cooldownOverrides: Set<String> = emptySet(),
     /** Per-outfit cooldown overrides keyed by signature. */
@@ -73,6 +76,10 @@ data class EngineContext(
 
     /** Thermal offset in °C: positive means the user runs cold and wants more warmth. */
     val thermalOffset: Double get() = settings.thermalBias + prefs.thermalOffset
+
+    /** 0..1: the share of recent decks that showed this item. */
+    fun exposure(itemId: String): Double =
+        if (recentDeckCount <= 0) 0.0 else ((recentDeckItems[itemId] ?: 0).toDouble() / recentDeckCount).coerceIn(0.0, 1.0)
 
     val formalityOffset: Double get() = prefs.formalityOffset[scenario.id] ?: 0.0
 

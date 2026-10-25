@@ -2,7 +2,8 @@ package io.github.aristidisg.ensemble.domain
 
 import io.github.aristidisg.ensemble.data.db.DeckLogEntity
 import io.github.aristidisg.ensemble.data.db.EnsembleDatabase
-import io.github.aristidisg.ensemble.data.repo.DataJson
+import io.github.aristidisg.ensemble.data.repo.DeckCardLog
+import io.github.aristidisg.ensemble.data.repo.DeckLog
 import io.github.aristidisg.ensemble.data.repo.FeedbackRepository
 import io.github.aristidisg.ensemble.data.repo.OutfitRepository
 import io.github.aristidisg.ensemble.data.repo.PlanRepository
@@ -27,13 +28,14 @@ import io.github.aristidisg.ensemble.model.Settings
 import io.github.aristidisg.ensemble.model.WindowWeather
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Weather for a scenario window, with where it came from. */
 data class DayWeather(val window: WindowWeather, val fromForecast: Boolean, val fetchedAtMillis: Long?)
+
+/** Recent decks looked back on for rotation: a piece shown in all of them gives way most. */
+private const val EXPOSURE_DECKS = 5
 
 /**
  * Builds engine contexts from everything stored on the phone and runs the engine off the main
@@ -85,7 +87,8 @@ class Studio @Inject constructor(
             val prefs = PreferenceSnapshot.of(stats, scenario.id, EngineContext.seasonOf(epochDay), epochDay, cfg, s.trustMyTaste)
             val saved = outfits.all()
             val soon = plans.allPlans().filter { it.epochDay in (epochDay + 1)..(epochDay + 3) }.flatMap { p -> p.pieces.map { it.itemId } }.toSet()
-            val recent = db.cache().recentDecks(3).flatMap { DataJson.decodeFromString(ListSerializer(String.serializer()), it.json) }.toSet()
+            val decks = db.cache().recentDecks(EXPOSURE_DECKS).map { DeckLog.decode(it.json) }
+            val recent = decks.take(3).flatten().map { it.signature }.toSet()
             EngineContext(
                 scenario = scenario,
                 weather = weatherOverride ?: dayWeather(epochDay, scenario, s).window,
@@ -97,6 +100,8 @@ class Studio @Inject constructor(
                 customRules = rules.allRules(),
                 plannedSoon = soon,
                 recentDeckSignatures = recent,
+                recentDeckItems = DeckLog.exposure(decks),
+                recentDeckCount = decks.size,
                 outfitCooldowns = saved.mapNotNull { o -> o.cooldownDays?.let { o.signature to it } }.toMap(),
                 neverAgain = saved.filter { it.neverShow }.map { it.signature }.toSet(),
             )
@@ -116,7 +121,7 @@ class Studio @Inject constructor(
         val version = items.maxOfOrNull { it.updatedAtMillis } ?: 0L
         val deck = engine.generate(ctx, items, SuggestionRequest(s.deckSize, locked, regenerate, version + items.size))
         db.cache().logDeck(DeckLogEntity(epochDay = epochDay, scenarioId = scenario.id,
-            json = DataJson.encodeToString(ListSerializer(String.serializer()), deck.cards.map { it.signature })))
+            json = DeckLog.encode(deck.cards.map { c -> DeckCardLog(c.signature, c.pieces.filter { it.slot.isCore }.map { it.itemId }) })))
         db.cache().trimDecks()
         ctx to deck
     }

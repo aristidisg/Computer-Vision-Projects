@@ -26,6 +26,7 @@ object ExplainText {
         Explain.ROTATION to (R.string.x_rotation to listOf("item", "n")),
         Explain.LEARNED_LIKE to (R.string.x_learned_like to listOf("a", "b", "n")),
         Explain.LIKE_SAVED to (R.string.x_like_saved to emptyList()),
+        Explain.GIVE_IT_A_TURN to (R.string.x_give_it_a_turn to listOf("item")),
         Explain.SILHOUETTE to (R.string.x_silhouette to emptyList()),
         Explain.PATTERN_ONE to (R.string.x_pattern_one to emptyList()),
         Explain.SHOE_REST to (R.string.x_shoe_rest to listOf("shoes")),

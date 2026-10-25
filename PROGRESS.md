@@ -79,6 +79,13 @@ Actions is the build machine (see DECISIONS.md).
     Each flag has a one-tap fix, a picker and "It's right". Every mid and outer layer is also
     listed for a manual pass.
   - **Category picker** now splits Tops from Mid layers and labels Outer layers.
+- [x] **Fair-share rotation.**
+  - Each piece is held to its fair share within a deck. Over-used pieces are swapped out when
+    that costs at most 0.08 Match.
+  - Over- and under-use across days shift scores.
+  - 2 "Give it a turn" cards per deck go to the least-shown pieces.
+  - "More" decks move on from what you just saw.
+  - The item page explains why a piece isn't suggested today.
 - [x] **Speed and battery.**
   - The deck shows at once from the cached forecast.
   - Location uses the free last-known fix when the forecast is fresh, never turns on GPS, and
@@ -118,7 +125,7 @@ Actions is the build machine (see DECISIONS.md).
 
 ## Tests
 
-- :engine — 113 tests (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
+- :engine — 116 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,

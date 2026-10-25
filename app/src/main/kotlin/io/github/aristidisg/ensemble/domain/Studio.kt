@@ -80,7 +80,14 @@ class Studio @Inject constructor(
         return DayWeather(WindowWeather.mild(), false, null)
     }
 
-    suspend fun context(epochDay: Long, scenario: Scenario, weatherOverride: WindowWeather? = null, settingsOverride: Settings? = null): EngineContext =
+    /**
+     * [includeToday]: count decks already shown today for rotation too (used by "More", so the
+     * next deck moves on from what you just saw; reopening the app keeps today's deck).
+     */
+    suspend fun context(
+        epochDay: Long, scenario: Scenario, weatherOverride: WindowWeather? = null, settingsOverride: Settings? = null,
+        includeToday: Boolean = false,
+    ): EngineContext =
         withContext(Dispatchers.Default) {
             val s = settingsOverride ?: settingsRepo.current()
             val items = wardrobe.all()
@@ -90,12 +97,14 @@ class Studio @Inject constructor(
             val saved = outfits.all()
             val soon = plans.allPlans().filter { it.epochDay in (epochDay + 1)..(epochDay + 3) }.flatMap { p -> p.pieces.map { it.itemId } }.toSet()
             val logged = db.cache().recentDecks(DECK_LOG_SIZE)
-            val recent = logged.filter { it.epochDay < epochDay }.take(3).flatMap { DeckLog.decode(it.json) }.map { it.signature }.toSet()
+            val before = { day: Long -> if (includeToday) day <= epochDay else day < epochDay }
+            val recent = logged.filter { before(it.epochDay) }.take(3).flatMap { DeckLog.decode(it.json) }.map { it.signature }.toSet()
             // Rotation looks at earlier days only (all decks of a day count as one), so the deck
             // stays the same while you look at it today and changes from one day to the next.
-            val decks = logged.filter { it.epochDay < epochDay }.groupBy { it.epochDay }.entries
+            val decks = logged.filter { before(it.epochDay) }.groupBy { it.epochDay }.entries
                 .sortedByDescending { it.key }.take(EXPOSURE_DECKS)
                 .map { (_, ds) -> ds.flatMap { DeckLog.decode(it.json) } }
+            val shown = decks.flatten()
             EngineContext(
                 scenario = scenario,
                 weather = weatherOverride ?: dayWeather(epochDay, scenario, s).window,
@@ -107,8 +116,8 @@ class Studio @Inject constructor(
                 customRules = rules.allRules(),
                 plannedSoon = soon,
                 recentDeckSignatures = recent,
-                recentDeckItems = DeckLog.exposure(decks),
-                recentDeckCount = decks.size,
+                recentDeckItems = DeckLog.exposure(shown),
+                recentDeckCount = shown.size,
                 outfitCooldowns = saved.mapNotNull { o -> o.cooldownDays?.let { o.signature to it } }.toMap(),
                 neverAgain = saved.filter { it.neverShow }.map { it.signature }.toSet(),
                 collection = saved.filter { it.liked && !it.neverShow }.map { it.pieces },
@@ -124,7 +133,7 @@ class Studio @Inject constructor(
     ): Pair<EngineContext, SuggestionDeck> = withContext(Dispatchers.Default) {
         val base = settingsRepo.current()
         val s = base.copy(boldness = (base.boldness + boldnessShift).coerceIn(0.0, 1.0))
-        val ctx = context(epochDay, scenario, weatherOverride, s)
+        val ctx = context(epochDay, scenario, weatherOverride, s, includeToday = regenerate > 0)
         val items = ctx.items.values.toList()
         val version = items.maxOfOrNull { it.updatedAtMillis } ?: 0L
         val deck = engine.generate(ctx, items, SuggestionRequest(s.deckSize, locked, regenerate, version + items.size))

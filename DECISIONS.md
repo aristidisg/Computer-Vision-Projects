@@ -99,6 +99,28 @@ Choices made where the spec left room, or where it was changed. Newest first.
     the same when the app is reopened and changes from one day to the next.
   - This lives in deck building, not in the rule groups, so Match % still means "how good is
     this outfit".
+- **Fair-share rotation (replaces the flat exposure penalty).** A piece's fair share is how
+  often its slot appears, divided by the number of usable pieces for that slot.
+  - **In-deck cap:** a piece can appear at most its share rounded up (2 uses for 8 bottoms in a
+    12-card deck). When no card fits, the card that breaks the caps least is used.
+  - **Swaps:** a card that would break a cap gets the over-used piece swapped for the
+    least-used one of its slot, if Match drops by no more than 0.08. The first card is never
+    swapped, so it stays the best outfit.
+  - **Across days:** pieces shown more than their share in recent decks lose 0.3 per unit of
+    overuse; pieces shown less gain up to 0.3.
+  - **Turn cards:** 2 cards per deck go to the least-shown tops, bottoms and layers, using their
+    best outfit at or above the 30th percentile. They are placed second and fifth and say
+    "Giving the … a turn". They are skipped on the first deck, when there is no history yet.
+  - **History:** decks of earlier days count; a "More" deck also counts today's decks, so it
+    moves on from what you just saw.
+  - **The generator keeps the best 4 outfits per core piece** (not 1), so a rarely-used piece
+    has more than one card to offer.
+  - **Two-week simulation on the demo wardrobe:** every eligible piece is shown, and each lands
+    between a third and twice its fair share. Before, the least-shown top got 3 cards and the
+    most-shown bottom 53. Mean Match stays at 0.83–0.87.
+- **"Why isn't this suggested?"** The item page says which hard constraint blocks a piece today:
+  laundry or storage, never suggest, resting after a no, weather, occasion, personal colour, or
+  strict rotation.
 - **Coverage over pure score.** The beam keeps the best partial outfit for every piece, and the
   candidate list keeps the best outfit per core piece next to the top 200.
 - **Clashes are data.** `ColorTables.clashes` lists family pairs that read badly even when hue

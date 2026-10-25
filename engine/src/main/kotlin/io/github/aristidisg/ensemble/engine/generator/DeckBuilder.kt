@@ -3,6 +3,9 @@ package io.github.aristidisg.ensemble.engine.generator
 import io.github.aristidisg.ensemble.engine.EngineContext
 import io.github.aristidisg.ensemble.engine.SeededRandom
 import io.github.aristidisg.ensemble.engine.rules.HardConstraints
+import io.github.aristidisg.ensemble.engine.rules.res
+import io.github.aristidisg.ensemble.engine.rules.RuleGroup
+import io.github.aristidisg.ensemble.engine.rules.Explain
 import io.github.aristidisg.ensemble.engine.rules.Look
 import io.github.aristidisg.ensemble.engine.rules.Placed
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
@@ -37,9 +40,16 @@ object DeckBuilder {
         val rng = SeededRandom(seed xor 0x5DEECE66DL)
         val byId = wardrobe.associateBy { it.id }
         val nExplore = if (ctx.settings.explorationRate <= 0) 0 else (req.deckSize * ctx.settings.explorationRate).toInt()
-        val main = mmr(candidates, req.deckSize - nExplore, ctx, byId, cfg.mmrLambda, rng)
-        val explore = explore(candidates, main, nExplore, ctx)
-        val deck = interleave(main, explore).map { accessorize(it, ctx, wardrobe, req.locked, gen.pairs) }
+        // Turns need history: without past decks there is no "least shown" yet.
+        val nTurn = if (req.deckSize >= 8 && coreLocked.isEmpty() && ctx.recentDeckCount > 0) TURN_CARDS else 0
+        // Turn cards are picked first, so the caps they use count against the rest of the deck.
+        val turns = turns(candidates, emptyList(), nTurn, ctx, req.deckSize)
+        val main = mmr(candidates, req.deckSize - nExplore - turns.size, ctx, byId, cfg.mmrLambda, rng, req.deckSize, turns)
+        val explore = explore(candidates, main + turns, nExplore, ctx)
+        fun acc(o: ScoredOutfit) = accessorize(o, ctx, wardrobe, req.locked, gen.pairs)
+        // Accessorizing rescores a card, so the turn line is put back afterwards.
+        val turnCards = turns.map { t -> acc(t).let { a -> a.copy(why = t.why.take(1) + a.why.take(2)) } }
+        val deck = interleave(withTurns(main.map(::acc), turnCards), explore.map(::acc))
         return SuggestionDeck(deck, candidates.size)
     }
 
@@ -95,64 +105,140 @@ object DeckBuilder {
         return shared + sameHarmony
     }
 
-    /** Penalty per earlier card in this deck that already uses the same core piece. */
-    const val REUSE_PENALTY = 0.05
-    /** Penalty for a card whose core pieces were all shown in every recent deck. */
-    const val EXPOSURE_PENALTY = 0.25
-
-    /**
-     * Rotation across decks and within one: pieces already used in this deck, or shown in most
-     * recent decks, make a card less attractive, so forgotten pieces get their turn even when
-     * nothing is logged as worn.
-     */
-    fun rotationPenalty(c: ScoredOutfit, usage: Map<String, Int>, ctx: EngineContext): Double {
-        val core = c.pieces.filter { it.slot.isCore }.map { it.itemId }
-        if (core.isEmpty()) return 0.0
-        val reuse = core.sumOf { usage[it] ?: 0 } * REUSE_PENALTY
-        val exposure = core.sumOf { ctx.exposure(it) } / core.size * EXPOSURE_PENALTY
-        return reuse + exposure
-    }
-
     /** Step 7: maximal marginal relevance, nudged toward 3+ harmony labels and 4+ different tops. */
-    fun mmr(cands: List<ScoredOutfit>, n: Int, ctx: EngineContext, byId: Map<String, Item>, lambda: Double, rng: SeededRandom): List<ScoredOutfit> {
+    fun mmr(
+        cands: List<ScoredOutfit>, n: Int, ctx: EngineContext, byId: Map<String, Item>, lambda: Double, rng: SeededRandom,
+        deckSize: Int = n, already: List<ScoredOutfit> = emptyList(),
+    ): List<ScoredOutfit> {
         val jitter = cands.associate { it.signature to rng.nextDouble() * 0.01 }
         val areas = cands.associate { c -> c.signature to (Look.of(c.pieces, ctx)?.pieceArea ?: emptyMap()) }
         val chosen = ArrayList<ScoredOutfit>()
         val usage = HashMap<String, Int>()
-        val pool = cands.toMutableList()
+        already.flatMap { c -> c.pieces.filter { it.slot.isCore } }.forEach { usage[it.itemId] = (usage[it.itemId] ?: 0) + 1 }
+        // Caps are sized for the whole deck, so the turn and new-idea cards fit under them too.
+        val fair = FairShare(cands, ctx, deckSize)
+        val pool = cands.filter { c -> already.none { it.signature == c.signature } }.toMutableList()
+        val slotPools = cands.flatMap { c -> c.pieces.filter { it.slot.isCore } }.groupBy({ it.slot }, { it.itemId }).mapValues { it.value.distinct() }
         val distinctTops = cands.mapNotNull { c -> c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId }.toSet().size
         while (chosen.size < n && pool.isNotEmpty()) {
             val labels = chosen.map { it.harmony.substringBefore(" ·") }.toSet()
             val tops = chosen.mapNotNull { c -> c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId }
-            val next = pool.maxBy { c ->
-                val sim = chosen.maxOfOrNull { similarity(c, it, areas.getValue(c.signature)) } ?: 0.0
+            // Fair-share caps first; when every card left breaks one, the card breaking them least.
+            val allowed = fair.leastExcess(pool, usage)
+            val next = allowed.maxBy { c ->
+                val sim = (chosen + already).maxOfOrNull { similarity(c, it, areas.getValue(c.signature)) } ?: 0.0
                 val top = c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId
                 var div = 0.0
                 if (labels.size < 3 && c.harmony.substringBefore(" ·") !in labels) div += 0.05
                 if (distinctTops >= 4 && top != null && tops.count { it == top } >= 2) div -= 0.1
-                lambda * c.total - (1 - lambda) * sim + div - rotationPenalty(c, usage, ctx) + (jitter[c.signature] ?: 0.0)
+                lambda * c.total - (1 - lambda) * sim + div - fair.penalty(c, usage) + (jitter[c.signature] ?: 0.0)
             }
-            chosen += next
             pool.remove(next)
-            next.pieces.filter { it.slot.isCore }.forEach { usage[it.itemId] = (usage[it.itemId] ?: 0) + 1 }
+            // The first card stays the best outfit as it is; later ones are rebalanced.
+            val card = if (chosen.isEmpty() && already.isEmpty()) next else rebalance(next, usage, fair, slotPools, ctx, byId).takeIf { r -> (chosen + already).none { it.signature == r.signature } } ?: next
+            chosen += card
+            card.pieces.filter { it.slot.isCore }.forEach { usage[it.itemId] = (usage[it.itemId] ?: 0) + 1 }
         }
         return chosen
     }
 
-    /** Step 8: "new idea" cards from candidates above the 70th percentile with the least feedback. */
+    /** Score a card may lose when an over-used piece is swapped for a fresher one. */
+    const val REBALANCE_TOLERANCE = 0.08
+
+    /**
+     * When a card would push a piece past its fair-share cap, try the same card with that piece
+     * swapped for the least-used piece of its slot that keeps the outfit valid and within
+     * [REBALANCE_TOLERANCE] of its score. Fixes "the same trousers every other card" when the
+     * candidates are all built around a few strong pieces.
+     */
+    fun rebalance(
+        card: ScoredOutfit, usage: Map<String, Int>, fair: FairShare, slotPools: Map<Slot, List<String>>,
+        ctx: EngineContext, byId: Map<String, Item>,
+    ): ScoredOutfit {
+        var best = card
+        for (p in card.pieces.filter { it.slot.isCore }) {
+            if ((usage[p.itemId] ?: 0) < fair.cap(p.slot)) continue
+            val inCard = best.pieces.map { it.itemId }.toSet()
+            val options = slotPools[p.slot].orEmpty()
+                .filter { it !in inCard && (usage[it] ?: 0) < fair.cap(p.slot) }
+                .sortedWith(compareBy({ usage[it] ?: 0 }, { fair.overuse(it, p.slot) }, { it }))
+                .take(6)
+            val swapped = options.mapNotNull { id ->
+                rescore(best.pieces.map { if (it.itemId == p.itemId && it.slot == p.slot) OutfitPiece(id, p.slot) else it }, ctx, byId, card.newIdea)
+            }.filter { it.total >= card.total - REBALANCE_TOLERANCE }.maxByOrNull { it.total }
+            if (swapped != null) best = swapped
+        }
+        return best
+    }
+
+    /**
+     * Step 8: "new idea" cards from candidates above the 70th percentile with the least feedback.
+     * They respect the fair-share caps too: when nothing above the 70th percentile fits, the
+     * median is the floor; caps are relaxed only when nothing fits at all.
+     */
     fun explore(cands: List<ScoredOutfit>, chosen: List<ScoredOutfit>, n: Int, ctx: EngineContext): List<ScoredOutfit> {
         if (n <= 0) return emptyList()
         val sorted = cands.map { it.total }.sorted()
         val p70 = sorted[(sorted.size * 0.7).toInt().coerceAtMost(sorted.lastIndex)]
-        val taken = chosen.map { it.signature }.toSet()
-        val chosenUsage = chosen.flatMap { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId } }.groupingBy { it }.eachCount()
-        return cands.filter { it.total >= p70 && it.signature !in taken }
-            .sortedWith(compareByDescending<ScoredOutfit> { c ->
-                // Novelty is summed per feature, so the rotation penalty is scaled to match.
-                c.features.sumOf { f -> val v = ctx.prefs.value(f); 1.0 / sqrt(1.0 + ((v?.pos ?: 0.0) + (v?.neg ?: 0.0))) } -
-                    rotationPenalty(c, chosenUsage, ctx) * c.features.size
-            }.thenBy { it.signature })
-            .take(n).map { it.copy(newIdea = true) }
+        val median = sorted[sorted.size / 2]
+        val taken = chosen.map { it.signature }.toMutableSet()
+        val usage = chosen.flatMap { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId } }.groupingBy { it }.eachCount().toMutableMap()
+        val fair = FairShare(cands, ctx, chosen.size + n)  // whole deck
+        // Novelty is summed per feature, so the rotation penalty is scaled to match.
+        fun novelty(c: ScoredOutfit) =
+            c.features.sumOf { f -> val v = ctx.prefs.value(f); 1.0 / sqrt(1.0 + ((v?.pos ?: 0.0) + (v?.neg ?: 0.0))) } - fair.penalty(c, usage) * c.features.size
+        val out = ArrayList<ScoredOutfit>()
+        repeat(n) {
+            val open = cands.filter { it.signature !in taken }
+            val pick = listOf(
+                open.filter { it.total >= p70 && !fair.exceedsCap(it, usage) },
+                open.filter { it.total >= median && !fair.exceedsCap(it, usage) },
+                fair.leastExcess(open.filter { it.total >= median }, usage),
+            ).firstOrNull { it.isNotEmpty() }?.sortedWith(compareByDescending<ScoredOutfit> { novelty(it) }.thenBy { it.signature })?.first() ?: return out
+            taken += pick.signature
+            pick.pieces.filter { it.slot.isCore }.forEach { usage[it.itemId] = (usage[it.itemId] ?: 0) + 1 }
+            out += pick.copy(newIdea = true)
+        }
+        return out
+    }
+
+    /** Cards per deck reserved for the least-shown pieces. */
+    const val TURN_CARDS = 2
+
+    /**
+     * "Give it a turn": the least-shown pieces (against their fair share, then by use in this
+     * deck) each get their best decent outfit, so no piece is left out for long even when other
+     * pieces score higher. Decent = at least the 30th-percentile candidate.
+     */
+    fun turns(cands: List<ScoredOutfit>, chosen: List<ScoredOutfit>, n: Int, ctx: EngineContext, deckSize: Int): List<ScoredOutfit> {
+        if (n <= 0) return emptyList()
+        val fair = FairShare(cands, ctx, deckSize)
+        val floor = cands.map { it.total }.sorted()[cands.size * 3 / 10]
+        val used = chosen.flatMap { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId } }.groupingBy { it }.eachCount().toMutableMap()
+        val taken = chosen.map { it.signature }.toMutableSet()
+        val pieces = cands.flatMap { c -> c.pieces.filter { it.slot == Slot.TOP || it.slot == Slot.BOTTOM || it.slot == Slot.MID || it.slot == Slot.OUTER } }
+            .distinctBy { it.itemId }
+            .sortedWith(compareBy({ fair.overuse(it.itemId, it.slot) + 0.5 * (used[it.itemId] ?: 0) }, { it.itemId }))
+        val out = ArrayList<ScoredOutfit>()
+        for (p in pieces) {
+            if (out.size >= n) break
+            if (out.any { o -> o.pieces.any { it.itemId == p.itemId } }) continue
+            val best = cands.filter { c -> c.signature !in taken && c.total >= floor && c.pieces.any { it.itemId == p.itemId } && !fair.exceedsCap(c, used) }
+                .maxByOrNull { it.total } ?: continue
+            best.pieces.filter { it.slot.isCore }.forEach { used[it.itemId] = (used[it.itemId] ?: 0) + 1 }
+            val name = ctx.items[p.itemId]?.name?.lowercase() ?: continue
+            taken += best.signature
+            out += best.copy(why = listOf(res("TURN", RuleGroup.ROTATION, 1.0, 0.0, Explain.GIVE_IT_A_TURN, "item" to name)) + best.why.take(2))
+        }
+        return out
+    }
+
+    /** Turn cards go second and fifth, where they are seen even if you swipe only a few. */
+    private fun withTurns(main: List<ScoredOutfit>, turns: List<ScoredOutfit>): List<ScoredOutfit> {
+        val out = main.toMutableList()
+        turns.getOrNull(0)?.let { out.add(minOf(1, out.size), it) }
+        turns.getOrNull(1)?.let { out.add(minOf(4, out.size), it) }
+        return out
     }
 
     /** About one card in five is an exploration card. */

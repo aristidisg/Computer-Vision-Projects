@@ -19,6 +19,8 @@ data class GeneratorConfig(
     val candidatesPerStep: Int = 40,
     val keepTop: Int = 200,
     val mmrLambda: Double = 0.75,
+    /** Candidates kept per core piece on top of the best [keepTop]. */
+    val perPiece: Int = 4,
 )
 
 /** Slot structure: which optional core layers a candidate has. */
@@ -142,9 +144,10 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
             }
         }
         val ranked = out.sortedWith(compareByDescending<ScoredOutfit> { it.total }.thenBy { it.signature })
-        // Keep the best outfit for every core piece too, so the deck can rotate the whole wardrobe.
+        // Keep the best few outfits for every core piece too, so the deck can rotate the whole
+        // wardrobe: one candidate per piece is used up after a single appearance.
         val bestPerItem = ranked.flatMap { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId to c } }
-            .distinctBy { it.first }.map { it.second }
+            .groupBy({ it.first }, { it.second }).values.flatMap { it.take(cfg.perPiece) }
         val top = ranked.take(cfg.keepTop)
         val keep = (top + bestPerItem).distinctBy { it.signature }
         return keep.sortedWith(compareByDescending<ScoredOutfit> { it.total }.thenBy { it.signature })

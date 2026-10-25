@@ -459,4 +459,15 @@
     <string name="now_label">Now: %1$s → %2$s</string>
     <string name="planned_for">Planned for %1$s</string>
     <string name="no_alternatives">Nothing else in your wardrobe fits this slot here.</string>
+    <string name="x_give_it_a_turn">Giving the %1$s a turn: it hasn\'t been suggested much lately.</string>
+    <!-- Why a piece isn't suggested -->
+    <string name="not_suggested_today">Not suggested today (%1$s):</string>
+    <string name="why_unavailable">it\'s in the laundry, stored, lent or at the tailor. Set it to Available below.</string>
+    <string name="why_never_suggest">\"Never suggest\" is on for it (edit the piece to turn it off).</string>
+    <string name="why_hidden">you said no to it recently, so it\'s resting for a few days.</string>
+    <string name="why_weather">it doesn\'t suit today\'s weather.</string>
+    <string name="why_scenario">its formality or style doesn\'t fit this occasion. It will come up on other occasions; check its formality if that seems wrong.</string>
+    <string name="why_personal">your personal colour settings exclude its colour.</string>
+    <string name="why_rotation">strict rotation is on and you wore it recently.</string>
+    <string name="why_other">it can\'t fit any outfit slot here.</string>
 </resources>

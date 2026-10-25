@@ -20,7 +20,7 @@ object DeckLog {
             .recoverCatching { DataJson.decodeFromString(legacy, json).map { DeckCardLog(it) } }
             .getOrDefault(emptyList())
 
-    /** Per item: how many of [decks] showed it at least once. */
-    fun exposure(decks: List<List<DeckCardLog>>): Map<String, Int> =
-        decks.flatMap { d -> d.flatMap { it.items }.distinct() }.groupingBy { it }.eachCount()
+    /** Per item: on how many of these [cards] it was shown (fair-share rotation). */
+    fun exposure(cards: List<DeckCardLog>): Map<String, Int> =
+        cards.flatMap { it.items }.groupingBy { it }.eachCount()
 }

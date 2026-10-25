@@ -137,8 +137,8 @@ class DataLayerTest {
         val cards = listOf(DeckCardLog("s1", listOf("tee", "jeans")), DeckCardLog("s2", listOf("tee", "chinos")))
         assertEquals(cards, DeckLog.decode(DeckLog.encode(cards)))
         assertTrue(DeckLog.decode("not json").isEmpty())
-        // Counted once per deck, however many cards in it used the piece.
-        assertEquals(mapOf("tee" to 2, "jeans" to 1, "chinos" to 1), DeckLog.exposure(listOf(cards, listOf(DeckCardLog("s3", listOf("tee"))))))
+        // Counted per card that showed the piece.
+        assertEquals(mapOf("tee" to 3, "jeans" to 1, "chinos" to 1), DeckLog.exposure(cards + DeckCardLog("s3", listOf("tee"))))
     }
 
     @Test fun parsesRecordedForecast() {

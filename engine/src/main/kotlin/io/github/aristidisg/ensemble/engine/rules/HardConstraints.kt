@@ -35,6 +35,15 @@ object HardConstraints {
         return null
     }
 
+    /**
+     * Why a piece can't be suggested in this context at all (for "Why isn't this suggested?"),
+     * or null when at least one of its slots is open to it.
+     */
+    fun whyNotSuggested(item: Item, ctx: EngineContext): Violation? {
+        val verdicts = item.slots.map { itemViolation(item, it, ctx) }
+        return if (verdicts.any { it == null }) null else verdicts.firstOrNull()
+    }
+
     private fun weatherViolation(item: Item, slot: Slot, ctx: EngineContext): Violation? {
         val w = ctx.weather
         val d = TaxonomyTable.of(item.subcategory)

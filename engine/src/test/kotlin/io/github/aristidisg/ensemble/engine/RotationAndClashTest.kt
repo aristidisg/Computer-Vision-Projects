@@ -5,7 +5,7 @@ import io.github.aristidisg.ensemble.engine.Fixtures.item
 import io.github.aristidisg.ensemble.engine.Fixtures.look
 import io.github.aristidisg.ensemble.engine.color.ColorScience
 import io.github.aristidisg.ensemble.engine.color.KMeans
-import io.github.aristidisg.ensemble.engine.generator.DeckBuilder
+import io.github.aristidisg.ensemble.engine.generator.FairShare
 import io.github.aristidisg.ensemble.engine.generator.Generator
 import io.github.aristidisg.ensemble.engine.rules.ColorPairRules
 import io.github.aristidisg.ensemble.engine.rules.Explain
@@ -78,25 +78,79 @@ class RotationTest {
         val first = engine.generate(base, Fixtures.wardrobe).cards
         // The top three cards' pieces were in every one of the last three decks.
         val shown = coreIds(first.take(3)).toSet()
-        val seen = base.copy(recentDeckItems = shown.associateWith { 3 }, recentDeckCount = 3)
+        // Shown on 6 of the last 36 cards each: several times their fair share.
+        val seen = base.copy(recentDeckItems = shown.associateWith { 6 }, recentDeckCount = 36)
         val second = engine.generate(seen, Fixtures.wardrobe).cards
         val firstSigs = first.map { it.signature }.toSet()
         assertTrue(first.take(3).none { c -> second.any { it.signature == c.signature } }, "yesterday's top cards came back")
         assertTrue(second.count { it.signature !in firstSigs } >= second.size / 2, "the deck barely changed")
         val newPieces = coreIds(second).toSet() - coreIds(first).toSet()
         assertTrue(newPieces.isNotEmpty(), "no piece missing from the first deck got a turn")
-        val topsBefore = first.mapNotNull { c -> c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId }.count { it in shown }
-        val topsAfter = second.mapNotNull { c -> c.pieces.firstOrNull { it.slot == Slot.TOP }?.itemId }.count { it in shown }
-        assertTrue(topsAfter < topsBefore, "shown tops: $topsBefore before, $topsAfter after")
+        // Tops and bottoms (the pieces with real alternatives) move on from what was shown.
+        fun shownTopsBottoms(cards: List<io.github.aristidisg.ensemble.engine.rules.ScoredOutfit>) =
+            cards.flatMap { c -> c.pieces.filter { it.slot == Slot.TOP || it.slot == Slot.BOTTOM } }.count { it.itemId in shown }
+        assertTrue(shownTopsBottoms(second) < shownTopsBottoms(first), "shown tops/bottoms: ${shownTopsBottoms(first)} before, ${shownTopsBottoms(second)} after")
     }
 
-    @Test fun `rotation penalty grows with reuse and exposure, zero for fresh pieces`() {
-        val card = engine.generate(base, Fixtures.wardrobe).cards.first()
-        assertEquals(0.0, DeckBuilder.rotationPenalty(card, emptyMap(), base))
+    @Test fun `fair share penalizes reuse and overuse and rewards unused pieces`() {
+        val cands = io.github.aristidisg.ensemble.engine.generator.Generator(base.withItems(Fixtures.wardrobe)).candidates(Fixtures.wardrobe)
+        val card = cands.first()
         val ids = card.pieces.filter { it.slot.isCore }.map { it.itemId }
-        val reused = DeckBuilder.rotationPenalty(card, mapOf(ids[0] to 2), base)
-        assertEquals(2 * DeckBuilder.REUSE_PENALTY, reused, 1e-9)
-        val exposed = base.copy(recentDeckItems = ids.associateWith { 5 }, recentDeckCount = 5)
-        assertEquals(DeckBuilder.EXPOSURE_PENALTY, DeckBuilder.rotationPenalty(card, emptyMap(), exposed), 1e-9)
+        val fresh = FairShare(cands, base, 12)
+        assertEquals(0.0, fresh.penalty(card, emptyMap()))
+        assertEquals(2 * FairShare.REUSE_PENALTY, fresh.penalty(card, mapOf(ids[0] to 2)), 1e-9)
+        // Every piece of this card was on half of the last 40 cards: far past its share.
+        val over = FairShare(cands, base.copy(recentDeckItems = ids.associateWith { 20 }, recentDeckCount = 40), 12)
+        assertTrue(over.penalty(card, emptyMap()) > 0.2)
+        // Pieces never shown while others were get a bonus (negative penalty).
+        val under = FairShare(cands, base.copy(recentDeckItems = mapOf("someone-else" to 40), recentDeckCount = 40), 12)
+        assertTrue(under.penalty(card, emptyMap()) < 0.0)
+    }
+
+    @Test fun `no piece exceeds its in-deck cap when alternatives exist`() {
+        val cands = io.github.aristidisg.ensemble.engine.generator.Generator(base.withItems(Fixtures.wardrobe)).candidates(Fixtures.wardrobe)
+        val fair = FairShare(cands, base, 12)
+        val deck = engine.generate(base, Fixtures.wardrobe).cards.filter { !it.newIdea }
+        val uses = deck.flatMap { c -> c.pieces.filter { it.slot.isCore } }.groupBy { it.itemId }
+        // A piece worn in two slots (a sweater as top or mid layer) is held to the larger cap.
+        for ((id, ps) in uses) {
+            val cap = ps.map { it.slot }.distinct().maxOf { fair.cap(it) }
+            assertTrue(ps.size <= cap, "$id used ${ps.size} times, cap $cap")
+        }
+    }
+
+    @Test fun `two weeks of decks spread across the whole wardrobe`() {
+        val days = ArrayList<List<List<String>>>()
+        val total = HashMap<String, Int>()
+        for (d in 0 until 14) {
+            val prev = days.takeLast(5)
+            val ctx = Fixtures.ctx("casual", Fixtures.weather(13.0, 18.0), day = Fixtures.TODAY + d)
+                .copy(recentDeckItems = prev.flatMap { it.flatten() }.groupingBy { it }.eachCount(), recentDeckCount = prev.sumOf { it.size })
+            val cards = engine.generate(ctx, Fixtures.wardrobe).cards.map { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId } }
+            days += cards
+            cards.flatten().forEach { total[it] = (total[it] ?: 0) + 1 }
+        }
+        val c = Fixtures.ctx("casual", Fixtures.weather(13.0, 18.0))
+        val eligible = Fixtures.wardrobe.filter { i -> i.slots.any { s -> s.isCore && HardConstraints.itemViolation(i, s, c) == null } }
+        assertTrue(eligible.all { it.id in total }, "never shown: ${eligible.filter { it.id !in total }.map { it.id }}")
+        // Per slot, every piece lands within a third and twice its fair share.
+        for (slot in listOf(Slot.TOP, Slot.BOTTOM, Slot.SHOES)) {
+            val counts = eligible.filter { it.slots.first() == slot }.map { total[it.id] ?: 0 }
+            val fair = counts.sum().toDouble() / counts.size
+            assertTrue(counts.min() >= fair / 3 && counts.max() <= fair * 2, "$slot spread ${counts.sorted()} (fair ${"%.1f".format(fair)})")
+        }
+    }
+}
+
+class WhyNotSuggestedTest {
+    @Test fun `explains blocked pieces and stays quiet for usable ones`() {
+        val c = ctx("casual")
+        kotlin.test.assertNull(HardConstraints.whyNotSuggested(item("tee-white"), c))
+        assertEquals(io.github.aristidisg.ensemble.engine.rules.Violation.UNAVAILABLE,
+            HardConstraints.whyNotSuggested(item("tee-white").copy(status = io.github.aristidisg.ensemble.model.ItemStatus.LAUNDRY), c))
+        assertEquals(io.github.aristidisg.ensemble.engine.rules.Violation.NEVER_SUGGEST,
+            HardConstraints.whyNotSuggested(item("tee-white").copy(flags = io.github.aristidisg.ensemble.model.ItemFlags(neverSuggest = true)), c))
+        assertEquals(io.github.aristidisg.ensemble.engine.rules.Violation.WEATHER,
+            HardConstraints.whyNotSuggested(item("chino-shorts"), ctx("casual", Fixtures.weather(5.0, 9.0))))
     }
 }

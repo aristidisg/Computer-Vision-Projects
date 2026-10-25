@@ -23,6 +23,10 @@ data class ScoredOutfit(
     val features: List<String>,
     val newIdea: Boolean = false,
     val violation: Violation? = null,
+    /** The styling technique this outfit uses, if any (card headline, deck variety). */
+    val technique: Technique? = null,
+    /** How to wear it (tuck, roll, cuff), at most two. */
+    val tips: List<Tip> = emptyList(),
 ) {
     val matchPct: Int get() = (total * 100).roundToInt()
     val itemIds: List<String> get() = pieces.map { it.itemId }
@@ -79,9 +83,10 @@ object Scorer {
     }
 
     fun groupWeight(g: RuleGroup, ctx: EngineContext): Double {
-        if (g == RuleGroup.LEARNED) return ctx.prefs.learnedWeight
+        // Experiment leans less on what you usually like, so new directions can win.
+        if (g == RuleGroup.LEARNED) return ctx.prefs.learnedWeight * if (ctx.settings.experimentMode) EngineContext.EXPERIMENT_LEARNED else 1.0
         var w = ctx.ruleWeight("group:${g.name}", g.defaultWeight)
-        val strict = ctx.settings.strictness
+        val strict = ctx.strictness
         if (g == RuleGroup.PATTERN_TEXTURE || g == RuleGroup.FORMALITY_STYLE) {
             w *= when (strict) { Strictness.CLASSIC -> 1.25; Strictness.ADVENTUROUS -> 0.8; else -> 1.0 }
         }
@@ -106,13 +111,25 @@ object Scorer {
             total += 0.1 * w
             results += res("CUSTOM", RuleGroup.FORMALITY_STYLE, if (w > 0) 1.0 else 0.0, 0.0, Explain.CUSTOM_RULE, "name" to rule.name)
         }
+        CollectionRules.influence(look, ctx)?.let { (bonus, line) -> total += bonus; results += line }
+        // The stylist's layer: technique, mood and accent colour (see EditorialRules).
+        val technique = StylistRules.technique(look, ctx)
+        EditorialRules.apply(look, ctx, technique).let { e -> total += e.bonus; results += e.lines }
+        // The seasons ticked on a piece: off-season core pieces cost Match (strongly, but not a
+        // hard block, so a warm autumn day can still bring out linen if nothing else fits).
+        val now = ctx.seasonsNow
+        val offSeason = look.core.map { it.item }.filter { it.seasons.isNotEmpty() && it.seasons.none { s -> s in now } }
+        if (offSeason.isNotEmpty()) {
+            total -= OFF_SEASON_PENALTY * offSeason.size
+            results += res("SEASON", RuleGroup.WEATHER, 0.2, 0.0, Explain.OUT_OF_SEASON, "item" to offSeason.first().name.lowercase())
+        }
         val comfort = look.items.mapNotNull { ctx.prefs.comfortPenalty[it.id] }.sum()
         total = calibrate(total - comfort)
 
         fun impact(r: RuleResult) = weights[r.group]?.let { it * r.weight } ?: (r.weight * 0.1)
         val explained = results.filter { it.key != null && it.id != "SH7" }
         val why = explained.filter { it.score > 0.5 && it.key !in negativeKeys }
-            .sortedWith(compareByDescending<RuleResult> { impact(it) * (it.score - 0.5) + if (it.id == "CUSTOM") 1.0 else 0.0 }.thenBy { it.id }).take(3)
+            .sortedWith(compareByDescending<RuleResult> { impact(it) * (it.score - 0.5) + when (it.id) { "CUSTOM" -> 1.0; "STYLE" -> 0.8; "ACCENT" -> 0.9; "MOOD" -> 0.7; "SAVED" -> 0.5; else -> 0.0 } }.thenBy { it.id }).take(3)
         val trade = explained.filter { it.score < 0.5 || it.key in negativeKeys && it.score < 0.8 }
             .sortedWith(compareByDescending<RuleResult> { impact(it) * (0.5 - it.score + 0.5) }.thenBy { it.id }).take(2)
         val weatherLine = results.firstOrNull { it.key == Explain.WEATHER_LAYER } ?: results.firstOrNull { it.key == Explain.RAIN }
@@ -130,6 +147,8 @@ object Scorer {
             sockHint = results.firstOrNull { it.id == "SH7" },
             features = feats,
             newIdea = newIdea,
+            technique = technique,
+            tips = StylingTips.tips(look, ctx),
         )
     }
 
@@ -137,6 +156,9 @@ object Scorer {
     fun calibrate(raw: Double): Double = ((raw - CALIBRATION_FLOOR) / (1.0 - CALIBRATION_FLOOR)).coerceIn(0.0, 1.0)
 
     const val CALIBRATION_FLOOR = 0.6
+
+    /** Raw score per core piece not tagged for the current season (about 0.1 on the Match scale). */
+    const val OFF_SEASON_PENALTY = 0.04
 
     private val negativeKeys = setOf(
         Explain.HARMONY_WEAK, Explain.TOO_MANY_ACCENTS, Explain.COLOR_FIGHT, Explain.LOW_CONTRAST, Explain.GREY_MUSH,
@@ -147,7 +169,7 @@ object Scorer {
         Explain.SHOE_CLASH, Explain.SHOE_WEATHER_BAD, Explain.SHOE_REST, Explain.SHOE_DARKER, Explain.ACCESSORY_COUNT,
         Explain.BELT_MISSING, Explain.BELT_WRONG, Explain.HEADWEAR_OFF, Explain.TOO_COLD, Explain.TOO_WARM,
         Explain.RAIN_UNPROTECTED, Explain.ROTATION, Explain.NEAR_DUPLICATE, Explain.SEEN_RECENTLY, Explain.PLANNED_SOON,
-        Explain.LAUNDRY_DUE, Explain.LEARNED_DISLIKE,
+        Explain.LAUNDRY_DUE, Explain.LEARNED_DISLIKE, Explain.OUT_OF_SEASON, Explain.ACCENT_MISSING,
     )
 
     /** "You've liked {a} with {b} {n} times" for the strongest liked color-family pair. */

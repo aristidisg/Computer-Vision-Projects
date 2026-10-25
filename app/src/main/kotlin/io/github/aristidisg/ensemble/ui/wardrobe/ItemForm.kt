@@ -2,17 +2,15 @@ package io.github.aristidisg.ensemble.ui.wardrobe
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import io.github.aristidisg.ensemble.model.CategoryGroup
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -45,7 +42,6 @@ import io.github.aristidisg.ensemble.model.Slot
 import io.github.aristidisg.ensemble.model.StyleTag
 import io.github.aristidisg.ensemble.model.WaterResistance
 import io.github.aristidisg.ensemble.ui.common.ChoiceChips
-import io.github.aristidisg.ensemble.ui.common.ColorDot
 import io.github.aristidisg.ensemble.ui.common.SectionTitle
 import io.github.aristidisg.ensemble.ui.common.SliderRow
 import io.github.aristidisg.ensemble.ui.common.SwitchRow
@@ -55,31 +51,18 @@ private fun <T> Set<T>.toggled(t: T): Set<T> = if (t in this) this - t else this
 private fun <T> List<T>.toggled(t: T): List<T> = if (t in this) this - t else this + t
 
 /** Every Item field from SPEC 2, pre-filled from the subcategory; only fix what's wrong. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ItemForm(d: Item, suggestPattern: Boolean, vm: ItemEditorViewModel) {
     var advanced by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth()) {
         OutlinedTextField(d.name, { v -> vm.update { it.copy(name = v) } }, label = { Text(stringResource(R.string.name)) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
 
-        SectionTitle(stringResource(R.string.colors))
-        d.colors.forEachIndexed { i, c ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ColorDot(c.hex, "${c.family.label} · ${(c.share * 100).roundToInt()}% · ${c.role.name.lowercase()}", Modifier.weight(1f))
-                IconButton(onClick = { vm.update { ItemFactory.refreshDerived(it.copy(colors = it.colors.filterIndexed { j, _ -> j != i })) } }, enabled = d.colors.size > 1) {
-                    Icon(Icons.Outlined.Close, stringResource(R.string.delete))
-                }
-            }
-        }
-        Text(stringResource(R.string.eyedropper_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        var familyPick by remember { mutableStateOf(false) }
-        TextButton(onClick = { familyPick = !familyPick }) { Text(stringResource(R.string.filter_color)) }
-        if (familyPick) ChoiceChips(ColorFamily.entries.filter { it != ColorFamily.MULTICOLOR }, setOfNotNull(d.primaryColor?.family), { it.label }, { f ->
-            vm.update { ItemFactory.refreshDerived(it.copy(colors = listOf(io.github.aristidisg.ensemble.engine.color.KMeans.itemColor(io.github.aristidisg.ensemble.engine.color.ColorTables.family(f).hex, family = f)) + it.colors.drop(1))) }
-        }, scroll = true)
+        ColorsEditor(d, vm)
 
         if (suggestPattern) {
             SectionTitle(stringResource(R.string.patterned_q))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(PatternType.STRIPES, PatternType.CHECK, PatternType.FLORAL).forEach { p -> AssistChip(onClick = { vm.setPattern(p) }, label = { Text(p.label) }) }
             }
         }
@@ -90,6 +73,18 @@ fun ItemForm(d: Item, suggestPattern: Boolean, vm: ItemEditorViewModel) {
             SliderRow(stringResource(R.string.loudness), d.pattern.loudness.toFloat(), 0f..3f, { v -> vm.update { it.copy(pattern = it.pattern.copy(loudness = v.roundToInt())) } }, { "${it.roundToInt()}" }, steps = 2)
         }
 
+        // How the piece is worn decides where it can go in an outfit; shown for every top, mid
+        // layer and jacket so "this isn't a jacket" is one tap, not hidden in Advanced.
+        if (d.subcategory.group == CategoryGroup.TOPS || d.subcategory.group == CategoryGroup.OUTERWEAR) {
+            SectionTitle(stringResource(R.string.worn_as))
+            val layers = listOf(Slot.TOP to R.string.worn_as_top, Slot.MID to R.string.worn_as_mid, Slot.OUTER to R.string.worn_as_outer)
+            val names = layers.associate { (slot, res) -> slot to stringResource(res) }
+            ChoiceChips(layers.map { it.first }, d.slots.toSet(), { s -> names.getValue(s) }, { s ->
+                vm.update { it.copy(slots = it.slots.toggled(s).ifEmpty { it.slots }) }
+            })
+            Text(stringResource(R.string.worn_as_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
         SectionTitle(stringResource(R.string.silhouette))
         ChoiceChips(Silhouette.entries, setOf(d.silhouette), { it.label }, { v -> vm.update { it.copy(silhouette = v) } })
         SliderRow(stringResource(R.string.formality), d.formality.toFloat(), 1f..10f, { v -> vm.update { it.copy(formality = v.roundToInt()) } }, { "${it.roundToInt()}/10" }, steps = 8)
@@ -98,11 +93,11 @@ fun ItemForm(d: Item, suggestPattern: Boolean, vm: ItemEditorViewModel) {
         SectionTitle(stringResource(R.string.seasons))
         ChoiceChips(Season.entries, d.seasons, { it.label }, { t -> vm.update { it.copy(seasons = it.seasons.toggled(t)) } })
         SectionTitle(stringResource(R.string.materials))
-        ChoiceChips(Material.entries, d.materials.toSet(), { it.label }, { m -> vm.update { ItemFactory.refreshDerived(it.copy(materials = it.materials.toggled(m))) } })
+        ChoiceChips(Material.entries, d.materials.toSet(), { it.label }, { m -> vm.update { ItemFactory.refreshDerived(it.copy(materials = it.materials.toggled(m)), it) } })
         SectionTitle(stringResource(R.string.status))
         ChoiceChips(ItemStatus.entries, setOf(d.status), { it.label }, { v -> vm.update { it.copy(status = v) } }, scroll = true)
         SwitchRow(stringResource(R.string.favorite), d.flags.favorite, { v -> vm.update { it.copy(flags = it.flags.copy(favorite = v)) } })
-        SwitchRow(stringResource(R.string.signature_piece), d.flags.signature, { v -> vm.update { it.copy(flags = it.flags.copy(signature = v)) } })
+        SwitchRow(stringResource(R.string.signature_piece), d.flags.signature, { v -> vm.update { it.copy(flags = it.flags.copy(signature = v)) } }, stringResource(R.string.signature_body))
         SwitchRow(stringResource(R.string.never_suggest), d.flags.neverSuggest, { v -> vm.update { it.copy(flags = it.flags.copy(neverSuggest = v)) } })
 
         TextButton(onClick = { advanced = !advanced }) { Text(stringResource(R.string.advanced)) }
@@ -115,7 +110,7 @@ private fun Advanced(d: Item, vm: ItemEditorViewModel) {
     SectionTitle(stringResource(R.string.slots))
     ChoiceChips(Slot.entries, d.slots.toSet(), { it.label }, { s -> vm.update { it.copy(slots = it.slots.toggled(s).ifEmpty { it.slots }) } }, scroll = true)
     SectionTitle(stringResource(R.string.fabric_weight))
-    ChoiceChips(FabricWeight.entries, setOf(d.fabricWeight), { it.name.lowercase() }, { v -> vm.update { ItemFactory.refreshDerived(it.copy(fabricWeight = v)) } })
+    ChoiceChips(FabricWeight.entries, setOf(d.fabricWeight), { it.name.lowercase() }, { v -> vm.update { ItemFactory.refreshDerived(it.copy(fabricWeight = v), it) } })
     SliderRow(stringResource(R.string.warmth), d.warmthClo.toFloat(), 0f..1f, { v -> vm.update { it.copy(warmthClo = (v * 100).roundToInt() / 100.0) } }, { "%.2f".format(it) })
     SectionTitle(stringResource(R.string.water))
     ChoiceChips(WaterResistance.entries, setOf(d.waterResistance), { it.name.lowercase() }, { v -> vm.update { it.copy(waterResistance = v) } })

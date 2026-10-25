@@ -8,6 +8,21 @@ enum class ItemField(val label: String) {
     PATTERN("Pattern"), MATERIAL("Material"), CUSTOM_TAG("Tag"), ITEM("Specific item")
 }
 
+/** A piece to buy: what it is, its color, and how many new outfits it unlocks. */
+@Serializable
+data class ShoppingEntry(
+    val id: String,
+    val subcategory: Subcategory,
+    val family: ColorFamily,
+    val hex: String,
+    val unlocks: Int = 0,
+    val note: String = "",
+    val done: Boolean = false,
+    val addedEpochDay: Long = 0,
+) {
+    val title: String get() = "${family.label} ${subcategory.label.lowercase()}"
+}
+
 /** Matches a piece when the field has the given value (enum name, tag or item ID). */
 @Serializable
 data class ItemPredicate(val field: ItemField, val value: String)
@@ -119,6 +134,30 @@ data class Settings(
     val autoBackupLastMillis: Long = 0,
     /** Manual weather per day ("set temperature by hand"), keyed by epoch day. */
     val manualWeather: Map<String, WindowWeather> = emptyMap(),
+    /**
+     * Saved and composed outfits shape suggestions: similar outfits get a boost and saving
+     * teaches taste. Off: neither, and past saves stop counting.
+     */
+    val savedOutfitsInfluence: Boolean = true,
+    /** Last color-naming version applied to the stored wardrobe (see ItemFactory.COLOR_NAMES_VERSION). */
+    val colorNamesVersion: Int = 0,
+    /** Pieces the user confirmed are labeled right ("It's right" in Check labels). */
+    val labelsConfirmed: Set<String> = emptySet(),
+    /**
+     * Experiment: bolder colors, looser style rules, more new ideas and less "what you usually
+     * like". Known clashes and hard rules (weather, occasion, laundry) still apply.
+     */
+    val experimentMode: Boolean = false,
+    /** No outer layers (jackets, coats) in suggestions: for indoor days or when you pick your own. */
+    val outerwearOff: Boolean = false,
+    /** No mid layers (sweaters, hoodies, overshirts as a layer): the top shows on its own or under a jacket. */
+    val midLayersOff: Boolean = false,
+    /** Style direction for suggestions (Today's Mood chip); null = no mood. */
+    val mood: Mood? = null,
+    /** Only outfits whose pieces have never been shown (or worn) together. */
+    val freshPairsOnly: Boolean = false,
+    /** Pieces to buy, usually added from the gap finder. */
+    val shoppingList: List<ShoppingEntry> = emptyList(),
 ) {
     companion object {
         val DEFAULT_STYLE_WEIGHTS: Map<StyleTag, Double> = StyleTag.entries.associateWith {

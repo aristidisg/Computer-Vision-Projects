@@ -7,6 +7,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +40,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,6 +60,7 @@ import io.github.aristidisg.ensemble.ui.theme.LocalEnsembleColors
 fun ItemEditorScreen(route: ItemEditorRoute, nav: NavHostController, vm: ItemEditorViewModel = hiltViewModel()) {
     LaunchedEffect(route) { vm.start(route.itemId, route.uris) }
     val s by vm.state.collectAsStateWithLifecycle()
+    val items by vm.wardrobeItems.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     LaunchedEffect(s.saved) { if (s.saved) nav.popBackStack() }
 
@@ -71,14 +76,18 @@ fun ItemEditorScreen(route: ItemEditorRoute, nav: NavHostController, vm: ItemEdi
             s.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (s.corrected != null) PhotoStep(s, vm)
             CategoryPicker(s, vm::chooseSubcategory)
+            SameAsPicker(items.filter { it.id != s.draft?.id }, vm::sameAs)
             s.draft?.let { d -> ItemForm(d, s.patternHint && d.pattern.type == PatternType.SOLID, vm) }
         }
-        if (s.draft != null) Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (s.existing) {
-                OutlinedButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete)) }
-                OutlinedButton(onClick = vm::duplicate) { Text(stringResource(R.string.duplicate_color)) }
+        // Save gets its own full-width row so the secondary actions can never squeeze it away.
+        if (s.draft != null) Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Button(onClick = { vm.save() }, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(if (s.queue.size > s.index + 1) R.string.save_next else R.string.save))
             }
-            Button(onClick = { vm.save() }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.save)) }
+            if (s.existing) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.delete), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                OutlinedButton(onClick = vm::duplicate, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.duplicate_color), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
         }
     }
     if (confirmDelete) AlertDialog(
@@ -89,6 +98,7 @@ fun ItemEditorScreen(route: ItemEditorRoute, nav: NavHostController, vm: ItemEdi
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PhotoStep(s: EditorState, vm: ItemEditorViewModel) {
     val shown = s.cutout ?: s.corrected ?: return
@@ -116,13 +126,13 @@ private fun PhotoStep(s: EditorState, vm: ItemEditorViewModel) {
         )
     }
     Text(stringResource(R.string.white_balance), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf(WbMode.AUTO to R.string.wb_auto, WbMode.TAP to R.string.wb_tap, WbMode.OFF to R.string.wb_off).forEach { (m, l) ->
             FilterChip(selected = s.wbMode == m, onClick = { vm.setWb(m) }, label = { Text(stringResource(l)) })
         }
     }
     Text(stringResource(R.string.brush), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         FilterChip(selected = s.tool == EditorTool.ERASE, onClick = { vm.setTool(EditorTool.ERASE) }, label = { Text(stringResource(R.string.brush_erase)) })
         FilterChip(selected = s.tool == EditorTool.RESTORE, onClick = { vm.setTool(EditorTool.RESTORE) }, label = { Text(stringResource(R.string.brush_restore)) })
         FilterChip(selected = s.tool == EditorTool.EYEDROPPER, onClick = { vm.setTool(EditorTool.EYEDROPPER) }, label = { Text(stringResource(R.string.eyedropper)) })
@@ -140,17 +150,18 @@ private fun relative(x: Float, y: Float, bw: Float, bh: Float, iw: Float, ih: Fl
     return ((x - (bw - dw) / 2) / dw) to ((y - (bh - dh) / 2) / dh)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CategoryPicker(s: EditorState, onPick: (Subcategory) -> Unit) {
     var group by remember { mutableStateOf<CategoryGroup?>(null) }
     if (s.hints.isNotEmpty()) {
         SectionTitle(stringResource(R.string.category_hints))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             s.hints.forEach { sub -> AssistChip(onClick = { onPick(sub) }, label = { Text(sub.label) }) }
         }
     }
     SectionTitle(stringResource(if (s.draft == null) R.string.choose_category else R.string.category))
     ChoiceChips(CategoryGroup.entries, setOfNotNull(group ?: s.draft?.subcategory?.group), { it.label }, { group = it }, scroll = true)
     val g = group ?: s.draft?.subcategory?.group
-    if (g != null) ChoiceChips(Subcategory.entries.filter { it.group == g }, setOfNotNull(s.draft?.subcategory), { it.label }, onPick)
+    if (g != null) SubcategoryChips(g, s.draft?.subcategory, onPick)
 }

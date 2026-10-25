@@ -13,6 +13,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -28,14 +30,18 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.aristidisg.ensemble.R
+import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.domain.Studio
 import io.github.aristidisg.ensemble.domain.TimeSource
 import io.github.aristidisg.ensemble.engine.color.ColorTables
 import io.github.aristidisg.ensemble.engine.planner.GapFinder
+import io.github.aristidisg.ensemble.engine.planner.VarietyReport
+import io.github.aristidisg.ensemble.engine.planner.VarietyStats
 import io.github.aristidisg.ensemble.engine.planner.GapSuggestion
 import io.github.aristidisg.ensemble.engine.planner.Orphan
+import io.github.aristidisg.ensemble.engine.planner.Routines
 import io.github.aristidisg.ensemble.engine.planner.UsageContext
 import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.Item
@@ -43,12 +49,17 @@ import io.github.aristidisg.ensemble.model.WindowWeather
 import io.github.aristidisg.ensemble.ui.common.BackBar
 import io.github.aristidisg.ensemble.ui.common.SectionTitle
 import io.github.aristidisg.ensemble.ui.common.hexColor
+import io.github.aristidisg.ensemble.ui.nav.ShoppingListRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 import javax.inject.Inject
 
 data class InsightsState(
@@ -61,6 +72,9 @@ data class InsightsState(
     val gaps: List<GapSuggestion> = emptyList(),
     val orphans: List<Orphan> = emptyList(),
     val computing: Boolean = false,
+    val variety: VarietyReport? = null,
+    /** Item names by ID, for the gap finder's "goes with". */
+    val names: Map<String, String> = emptyMap(),
 )
 
 @HiltViewModel
@@ -69,7 +83,16 @@ class InsightsViewModel @Inject constructor(
     private val wear: WearRepository,
     private val studio: Studio,
     private val time: TimeSource,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
+    /** Gaps already on the shopping list, as "SUBCATEGORY/FAMILY". */
+    val listed = settings.settings.map { s -> s.shoppingList.filter { !it.done }.map { "${it.subcategory}/${it.family}" }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun addToList(g: GapSuggestion) = viewModelScope.launch {
+        settings.update { it.copy(shoppingList = Routines.addToShoppingList(it.shoppingList, g, UUID.randomUUID().toString(), time.today())) }
+    }
+
     private val _s = MutableStateFlow(InsightsState())
     val state = _s.asStateFlow()
     private val bands = listOf("Cold 2-8 °C" to WindowWeather(2.0, 8.0), "Cool 10-16 °C" to WindowWeather(10.0, 16.0), "Mild 17-23 °C" to WindowWeather(17.0, 23.0), "Hot 26-32 °C" to WindowWeather(26.0, 32.0))
@@ -85,6 +108,7 @@ class InsightsViewModel @Inject constructor(
                     palette = items.mapNotNull { i -> i.primaryColor?.family }.groupingBy { f -> f }.eachCount().toList().sortedByDescending { p -> p.second },
                     wears = items.map { i -> i to (counts[i.id] ?: 0) }.sortedByDescending { p -> p.second },
                     unworn60 = unworn(60), unworn90 = unworn(90),
+                    variety = VarietyStats.week(logs, items, today), names = items.associate { i -> i.id to i.name },
                 )
             }
         }
@@ -124,9 +148,13 @@ class InsightsViewModel @Inject constructor(
 @Composable
 fun InsightsScreen(nav: NavHostController, vm: InsightsViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val listed by vm.listed.collectAsStateWithLifecycle()
     Column {
-        BackBar(stringResource(R.string.insights), onBack = { nav.popBackStack() })
+        BackBar(stringResource(R.string.insights), onBack = { nav.popBackStack() }) {
+            TextButton(onClick = { nav.navigate(ShoppingListRoute) }) { Text(stringResource(R.string.shopping_list)) }
+        }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            VarietySection(s.variety)
             SectionTitle(stringResource(R.string.palette_title))
             val total = s.palette.sumOf { it.second }.coerceAtLeast(1)
             Canvas(Modifier.fillMaxWidth().height(28.dp)) {
@@ -140,7 +168,7 @@ fun InsightsScreen(nav: NavHostController, vm: InsightsViewModel = hiltViewModel
             Text(s.palette.joinToString { "${it.first.label} ${it.second}" }, style = MaterialTheme.typography.bodySmall)
             SectionTitle(stringResource(R.string.wears))
             s.wears.take(8).forEach { (i, n) -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(i.name, Modifier.width(180.dp), maxLines = 1, style = MaterialTheme.typography.bodySmall)
+                Text(i.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text("$n" + (i.meta.price?.let { p -> " · " + "%.2f".format(p / maxOf(1, n)) } ?: ""), style = MaterialTheme.typography.bodySmall)
             } }
             SectionTitle(stringResource(R.string.unworn_60) + " (${s.unworn60.size})")
@@ -156,7 +184,7 @@ fun InsightsScreen(nav: NavHostController, vm: InsightsViewModel = hiltViewModel
                 val max = s.coverage.maxOf { it.third }.coerceAtLeast(1)
                 s.coverage.forEach { (sc, band, n) ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-                        Text("$sc · $band", Modifier.width(200.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                        Text("$sc · $band", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val shade = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f + 0.85f * n / max)
                         Canvas(Modifier.width(60.dp).height(16.dp)) { drawRect(shade) }
                         Text(" $n", style = MaterialTheme.typography.labelSmall)
@@ -165,10 +193,7 @@ fun InsightsScreen(nav: NavHostController, vm: InsightsViewModel = hiltViewModel
             }
             if (s.gaps.isNotEmpty()) {
                 SectionTitle(stringResource(R.string.gap_finder))
-                s.gaps.forEach { g ->
-                    Text(g.title, style = MaterialTheme.typography.bodyLarge)
-                    Text(stringResource(R.string.gap_line, g.unlocks, g.fills.joinToString()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                s.gaps.forEach { g -> GapRow(g, s.names, "${g.archetype.sub}/${g.color}" in listed) { vm.addToList(g) } }
             }
             if (s.orphans.isNotEmpty()) {
                 SectionTitle(stringResource(R.string.orphans))

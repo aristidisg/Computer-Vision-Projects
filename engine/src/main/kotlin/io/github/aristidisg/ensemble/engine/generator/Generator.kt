@@ -7,6 +7,7 @@ import io.github.aristidisg.ensemble.engine.rules.Look
 import io.github.aristidisg.ensemble.engine.rules.Placed
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.engine.rules.Scorer
+import io.github.aristidisg.ensemble.engine.tables.StyleTables.Area
 import io.github.aristidisg.ensemble.engine.tables.TaxonomyTable
 import io.github.aristidisg.ensemble.engine.tables.WarmthTable
 import io.github.aristidisg.ensemble.model.Item
@@ -19,6 +20,8 @@ data class GeneratorConfig(
     val candidatesPerStep: Int = 40,
     val keepTop: Int = 200,
     val mmrLambda: Double = 0.75,
+    /** Candidates kept per core piece on top of the best [keepTop]. */
+    val perPiece: Int = 4,
 )
 
 /** Slot structure: which optional core layers a candidate has. */
@@ -55,13 +58,19 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
             else -> listOf(Structure(true, true))
         }
         val lockedSlots = locked.map { it.slot }.toSet()
-        val forced = opts.map { s ->
+        // Outerwear switched off: no outer layer unless one is locked in by hand.
+        val allowOuter = !ctx.settings.outerwearOff || Slot.OUTER in lockedSlots
+        val allowMid = !ctx.settings.midLayersOff || Slot.MID in lockedSlots
+        val forced = opts.map { s -> Structure(s.mid && allowMid, s.outer && allowOuter) }.distinct().map { s ->
             Structure(s.mid || Slot.MID in lockedSlots, s.outer || Slot.OUTER in lockedSlots)
         }.distinct()
         val feasible = forced.filter { s -> (!s.mid || pools[Slot.MID].orEmpty().isNotEmpty()) && (!s.outer || pools[Slot.OUTER].orEmpty().isNotEmpty()) }
         // Fall back to lighter structures when the wardrobe lacks layers.
-        return feasible.ifEmpty { listOf(Structure(false, false), Structure(true, false), Structure(false, true)).filter { s ->
-            (!s.mid || pools[Slot.MID].orEmpty().isNotEmpty()) && (!s.outer || pools[Slot.OUTER].orEmpty().isNotEmpty())
+        // Locked layers stay in every structure.
+        return feasible.ifEmpty { listOf(Structure(false, false), Structure(true, false), Structure(false, true)).map { s ->
+            Structure(s.mid || Slot.MID in lockedSlots, s.outer || Slot.OUTER in lockedSlots)
+        }.distinct().filter { s ->
+            (!s.mid || (allowMid && pools[Slot.MID].orEmpty().isNotEmpty())) && (!s.outer || (allowOuter && pools[Slot.OUTER].orEmpty().isNotEmpty()))
         } }
     }
 
@@ -83,23 +92,32 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
                 return emptyList()
             }
             val next = ArrayList<Partial>()
+            fun extend(p: Partial, item: Item): Partial {
+                val placed = Placed(item, slot)
+                val s = (if (p.pieces.isEmpty()) 0.75 else p.pieces.sumOf { pairs.score(it, placed) } / p.pieces.size) + rng.nextDouble() * 0.04
+                val n = p.pieces.size
+                return Partial(p.pieces + placed, if (n == 0) s else (p.score * n + s) / (n + 1))
+            }
             for (p in beam) {
                 val used = p.pieces.map { it.item.id }.toSet()
-                val cands = pool.asSequence()
+                next += pool.asSequence()
                     .filter { it.id !in used && fits(slot, it, p.pieces) }
-                    .map { item ->
-                        val placed = Placed(item, slot)
-                        val s = if (p.pieces.isEmpty()) 0.75 else p.pieces.sumOf { pairs.score(it, placed) } / p.pieces.size
-                        placed to s + rng.nextDouble() * 0.04
-                    }
-                    .sortedByDescending { it.second }
+                    .map { extend(p, it) }
+                    .sortedByDescending { it.score }
                     .take(cfg.candidatesPerStep)
-                for ((placed, s) in cands) {
-                    val n = p.pieces.size
-                    next += Partial(p.pieces + placed, if (n == 0) s else (p.score * n + s) / (n + 1))
-                }
             }
-            beam = next.sortedByDescending { it.score }.take(cfg.beamWidth)
+            // Coverage: every piece in the pool gets at least one partial, built on the best
+            // partial it fits, so pieces with modest pair scores are never silently dropped.
+            val placedIds = next.map { it.pieces.last().item.id }.toHashSet()
+            for (item in pool) {
+                if (item.id in placedIds) continue
+                val host = beam.firstOrNull { p -> p.pieces.none { it.item.id == item.id } && fits(slot, item, p.pieces) } ?: continue
+                next += extend(host, item)
+            }
+            val ranked = next.sortedByDescending { it.score }
+            // The best partial holding each piece survives later steps too, not just this one.
+            val bestPerItem = ranked.flatMap { p -> p.pieces.map { it.item.id to p } }.distinctBy { it.first }.map { it.second }
+            beam = (ranked.take(cfg.beamWidth) + bestPerItem).distinct()
             if (beam.isEmpty()) return emptyList()
         }
         return beam.map { it.pieces }
@@ -122,6 +140,37 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
     /** Steps 1-5: complete scored candidates, best first, all passing outfit-level hard constraints. */
     fun candidates(wardrobe: List<Item>, locked: List<OutfitPiece> = emptyList()): List<ScoredOutfit> {
         val pools = pools(wardrobe, locked)
+        val shown = locked.filter { it.slot == Slot.TOP || it.slot == Slot.MID }
+        if (shown.isEmpty()) return search(pools, locked)
+        // A piece you picked has to show: a white tee you build around shouldn't vanish under a
+        // hoodie and a closed coat. First only layers that leave it fully visible, then (cold
+        // days, closed coats) at least not hidden twice over, and only then anything.
+        for ((strictOuter, minArea) in listOf(true to Area.VISIBLE, false to Area.TOP_UNDER_CLOSED)) {
+            val visible = search(revealing(pools, locked, strictOuter), locked).filter { c -> shows(c, shown, minArea) }
+            if (visible.isNotEmpty()) return visible
+        }
+        return search(pools, locked)
+    }
+
+    /** Pools without the layers that would cover a locked top (pullovers) or locked mid (closed coats). */
+    private fun revealing(pools: Map<Slot, List<Item>>, locked: List<OutfitPiece>, strictOuter: Boolean): Map<Slot, List<Item>> {
+        val lockedSlots = locked.map { it.slot }.toSet()
+        return pools.mapValues { (slot, pool) ->
+            when {
+                slot in lockedSlots -> pool
+                slot == Slot.MID && Slot.TOP in lockedSlots -> pool.filter { it.layering.canWearOpen }
+                slot == Slot.OUTER && strictOuter -> pool.filter { Look.wornOpen(it, ctx) }
+                else -> pool
+            }
+        }
+    }
+
+    private fun shows(c: ScoredOutfit, shown: List<OutfitPiece>, minArea: Double): Boolean {
+        val look = Look.of(c.pieces, ctx) ?: return false
+        return shown.all { p -> look.placed.any { it.item.id == p.itemId } && look.areaWeight(p.slot) >= minArea }
+    }
+
+    private fun search(pools: Map<Slot, List<Item>>, locked: List<OutfitPiece>): List<ScoredOutfit> {
         val seen = HashSet<String>()
         val out = ArrayList<ScoredOutfit>()
         for (st in structures(pools, locked)) {
@@ -132,7 +181,14 @@ class Generator(private val ctx: EngineContext, private val cfg: GeneratorConfig
                 out += Scorer.score(look, ctx)
             }
         }
-        return out.sortedWith(compareByDescending<ScoredOutfit> { it.total }.thenBy { it.signature }).take(cfg.keepTop)
+        val ranked = out.sortedWith(compareByDescending<ScoredOutfit> { it.total }.thenBy { it.signature })
+        // Keep the best few outfits for every core piece too, so the deck can rotate the whole
+        // wardrobe: one candidate per piece is used up after a single appearance.
+        val bestPerItem = ranked.flatMap { c -> c.pieces.filter { it.slot.isCore }.map { it.itemId to c } }
+            .groupBy({ it.first }, { it.second }).values.flatMap { it.take(cfg.perPiece) }
+        val top = ranked.take(cfg.keepTop)
+        val keep = (top + bestPerItem).distinctBy { it.signature }
+        return keep.sortedWith(compareByDescending<ScoredOutfit> { it.total }.thenBy { it.signature })
     }
 
     companion object {

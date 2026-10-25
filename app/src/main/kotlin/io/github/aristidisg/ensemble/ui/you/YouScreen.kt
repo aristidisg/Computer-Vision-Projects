@@ -23,6 +23,7 @@ import io.github.aristidisg.ensemble.ui.nav.ComposerRoute
 import io.github.aristidisg.ensemble.ui.nav.CustomRuleRoute
 import io.github.aristidisg.ensemble.ui.nav.DataRoute
 import io.github.aristidisg.ensemble.ui.nav.InsightsRoute
+import io.github.aristidisg.ensemble.ui.nav.ShoppingListRoute
 import io.github.aristidisg.ensemble.ui.nav.LocationRoute
 import io.github.aristidisg.ensemble.ui.nav.NotificationsRoute
 import io.github.aristidisg.ensemble.ui.nav.OnboardingRoute
@@ -45,6 +46,8 @@ fun YouScreen(nav: NavHostController, vm: SettingsViewModel = hiltViewModel()) {
         NavRow(stringResource(R.string.scenarios)) { nav.navigate(ScenariosRoute) }
         NavRow(stringResource(R.string.personal_color), if (s.personalColor.enabled) stringResource(R.string.on) else stringResource(R.string.off)) { nav.navigate(PersonalColorRoute) }
         NavRow(stringResource(R.string.insights)) { nav.navigate(InsightsRoute) }
+        val toBuy = s.shoppingList.count { !it.done }
+        NavRow(stringResource(R.string.shopping_list), if (toBuy > 0) stringResource(R.string.to_buy_n, toBuy) else null) { nav.navigate(ShoppingListRoute) }
         NavRow(stringResource(R.string.rotation)) { nav.navigate(RotationRoute) }
         NavRow(stringResource(R.string.location_weather), s.savedCity?.name) { nav.navigate(LocationRoute) }
         NavRow(stringResource(R.string.notifications)) { nav.navigate(NotificationsRoute) }

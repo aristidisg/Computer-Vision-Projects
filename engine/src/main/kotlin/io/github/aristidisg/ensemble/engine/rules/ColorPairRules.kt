@@ -21,8 +21,12 @@ object ColorPairRules {
         pair(look.outer, look.bottom),
         pair(look.bottom, look.shoes),
         pair(look.outer, look.top ?: look.mid),
+        pair(look.outer, look.mid).takeIf { look.top != null },
         pair(look.mid, look.top),
     )
+
+    /** C7 weight when a pair is a known clash: enough to sink an outfit the hue math likes. */
+    private const val CLASH_WEIGHT = 4.0
 
     private fun pair(a: Item?, b: Item?) = if (a != null && b != null) a to b else null
 
@@ -37,6 +41,10 @@ object ColorPairRules {
         val best = scored.maxBy { it.third }
         val worst = scored.minBy { it.third }
         return when {
+            ColorTables.clashes.containsKey(setOf(worst.first, worst.second)) ->
+                res("C7", G, worst.third, CLASH_WEIGHT, Explain.UNUSUAL_PAIR, "a" to worst.first.label, "b" to worst.second.label.lowercase())
+            // Experiment: an unusual (not clashing) pair is the point, not a fault.
+            worst.third <= 0.5 && ctx.settings.experimentMode -> res("C7", G, maxOf(mean, 0.7), 1.0)
             worst.third <= 0.5 -> res("C7", G, mean, 1.0, Explain.UNUSUAL_PAIR, "a" to worst.first.label, "b" to worst.second.label.lowercase())
             best.third >= 0.9 -> res("C7", G, mean, 1.0, Explain.CLASSIC_PAIR, "a" to best.first.label, "b" to best.second.label.lowercase())
             else -> res("C7", G, mean)
@@ -46,7 +54,8 @@ object ColorPairRules {
     fun c8DenimOnDenim(look: Look): RuleResult? {
         val denims = look.core.filter { it.slot != Slot.SHOES && (Material.DENIM in it.item.materials || it.item.primaryColor?.family?.isDenim == true) }
         if (denims.size < 2) return null
-        val a = look.dominant(denims[0].item)!!; val b = look.dominant(denims[1].item)!!
+        val a = look.dominant(denims[0].item) ?: return null
+        val b = look.dominant(denims[1].item) ?: return null
         val ok = abs(a.l - b.l) >= 0.15 || ColorScience.deltaE(a.lab, b.lab) <= 0.03
         return if (ok) res("C8", G, 1.0, 1.0, Explain.DENIM_OK) else res("C8", G, 0.2, 1.5, Explain.DENIM_CLASH)
     }

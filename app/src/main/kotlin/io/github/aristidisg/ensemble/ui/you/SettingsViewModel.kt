@@ -40,10 +40,10 @@ class SettingsViewModel @Inject constructor(
     fun updateLearning(t: (Settings) -> Settings) = viewModelScope.launch {
         repo.update(t)
         val s = repo.current()
-        feedback.rebuild(s.learningEpoch, LearningConfig(s.halfLifeDays, s.rejectedCooldownDays))
+        feedback.rebuild(s.learningEpoch, LearningConfig.of(s))
     }
 
-    fun updateSchedule(t: (Settings) -> Settings) = viewModelScope.launch { repo.update(t); scheduler.scheduleAll() }
+    fun updateSchedule(t: (Settings) -> Settings) = viewModelScope.launch { repo.update(t); scheduler.scheduleAll(reschedule = true) }
 
     fun searchCity(q: String) = viewModelScope.launch { _cities.value = weather.search(q).getOrDefault(emptyList()) }
 

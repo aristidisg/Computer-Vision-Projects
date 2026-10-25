@@ -1,0 +1,6 @@
+# Baseline profile: ahead-of-time compile Ensemble's own code (app, engine, data, model) at
+# install so the first launch, the deck and the outfit engine run compiled instead of in the
+# interpreter. Faster and lighter on battery. The classes keep their names (proguard-rules.pro),
+# so these wildcard rules still match after R8.
+HSPLio/github/aristidisg/ensemble/**->**(**)**
+Lio/github/aristidisg/ensemble/**;

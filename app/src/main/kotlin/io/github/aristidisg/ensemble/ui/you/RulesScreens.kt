@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.you
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -169,7 +172,7 @@ private fun RuleEditor(r: CustomRule, onChange: (CustomRule) -> Unit, onSave: (C
         })
         OutlinedTextField(sc.scenarioIds.joinToString(","), { v -> onChange(r.copy(scope = sc.copy(scenarioIds = v.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()))) },
             label = { Text(stringResource(R.string.scenarios) + " (office, date…)") }, modifier = Modifier.fillMaxWidth())
-        Row(Modifier.padding(vertical = 16.dp)) {
+        FlowRow(Modifier.padding(vertical = 16.dp)) {
             OutlinedButton(onClick = { onDelete(r) }) { Text(stringResource(R.string.delete)) }
             Button(onClick = { onSave(r.copy(name = r.name.ifBlank { describe(r) })) }, enabled = r.a.isNotEmpty(), modifier = Modifier.padding(start = 8.dp)) { Text(stringResource(R.string.save)) }
         }

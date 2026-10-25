@@ -20,6 +20,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class LookMatchRoute(val id: String)
 @Serializable data class TripRoute(val id: String? = null)
 @Serializable object LaundryRoute
+@Serializable object LabelCheckRoute
 @Serializable object StyleProfileRoute
 @Serializable object TasteRoute
 @Serializable object RulesRoute
@@ -28,6 +29,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class ScenarioEditorRoute(val id: String? = null)
 @Serializable object PersonalColorRoute
 @Serializable object InsightsRoute
+@Serializable object LookbookRoute
+@Serializable object ShoppingListRoute
 @Serializable object RotationRoute
 @Serializable object LocationRoute
 @Serializable object NotificationsRoute

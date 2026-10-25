@@ -14,7 +14,10 @@ import io.github.aristidisg.ensemble.domain.Studio
 import io.github.aristidisg.ensemble.domain.TimeSource
 import io.github.aristidisg.ensemble.domain.WeatherService
 import io.github.aristidisg.ensemble.engine.DemoWardrobe
+import io.github.aristidisg.ensemble.engine.DeckOptions
 import io.github.aristidisg.ensemble.engine.EngineContext
+import io.github.aristidisg.ensemble.model.ColorFamily
+import io.github.aristidisg.ensemble.model.Mood
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.OutfitPiece
@@ -54,6 +57,20 @@ data class TodayState(
     val undoCount: Int = 0,
     val message: String? = null,
     val weatherError: String? = null,
+    /** Experiment mode: bolder, more creative suggestions. */
+    val experiment: Boolean = false,
+    /** Outerwear switched off: no jackets or coats in suggestions. */
+    val noOuter: Boolean = false,
+    /** Mid layers are switched off (Settings.midLayersOff). */
+    val noMid: Boolean = false,
+    val mood: Mood? = null,
+    /** Only pairings never shown or worn together. */
+    val freshPairs: Boolean = false,
+    /** Today's colour to build around (not saved) and the families in the wardrobe to choose from. */
+    val accent: ColorFamily? = null,
+    val accentChoices: List<ColorFamily> = emptyList(),
+    /** Vogue stylist: a short deck of cover looks. */
+    val vogue: Boolean = false,
 )
 
 @HiltViewModel
@@ -77,12 +94,31 @@ class TodayViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val r = weatherService.refresh()
-            _state.update { it.copy(place = r.getOrNull()?.locationName, weatherError = r.exceptionOrNull()?.message) }
+            // Deck first, from the cached forecast: no waiting for location and network.
             val day = time.today()
+            val before = weatherService.cachedFetchMillis()
             selectScenario(studio.defaultScenarioId(day), day)
+            val r = weatherService.refresh()
+            _state.update { it.copy(place = r.getOrNull()?.locationName ?: it.place, weatherError = r.exceptionOrNull()?.message) }
+            // Rebuild only when a newer forecast actually arrived.
+            if (r.getOrNull()?.fetchedAtMillis?.let { it != before } == true) generate()
         }
-        viewModelScope.launch { wardrobe.items.collect { items -> _state.update { it.copy(items = items.associateBy { i -> i.id }, minimum = minimum(items)) } } }
+        viewModelScope.launch { settings.settings.collect { s -> _state.update { it.copy(experiment = s.experimentMode, noOuter = s.outerwearOff, noMid = s.midLayersOff, mood = s.mood, freshPairs = s.freshPairsOnly) } } }
+        viewModelScope.launch {
+            var ids: Set<String>? = null
+            wardrobe.items.collect { items ->
+                _state.update { it.copy(items = items.associateBy { i -> i.id }, minimum = minimum(items)) }
+                // Pieces added or deleted elsewhere: rebuild the deck so it never shows a deleted
+                // piece and new pieces get a chance. Swipes and wears keep the set, so no reshuffle.
+                val now = items.map { it.id }.toSet()
+                // Also when a card no longer fits the pieces: a layer unticked ("not a jacket"),
+                // a piece sent to the laundry or to storage.
+                val byId = items.associateBy { it.id }
+                val stale = _state.value.cards.any { c -> c.pieces.any { p -> byId[p.itemId]?.let { i -> p.slot !in i.slots || !i.isAvailable } ?: true } }
+                if (ids != null && (now != ids || stale) && _state.value.scenario != null && !_state.value.loading) generate()
+                ids = now
+            }
+        }
     }
 
     private fun minimum(items: List<Item>): MinimumSet {
@@ -103,6 +139,36 @@ class TodayViewModel @Inject constructor(
     }
 
     fun more() { regenerate++; generate() }
+
+    /** Outerwear on/off: a new deck straight away. */
+    fun setNoOuter(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(outerwearOff = on) }
+        regenerate++
+        generate()
+    }
+
+    /** Mood, fresh pairs (saved), accent and Vogue (this deck only): each deals a new deck. */
+    fun setMood(m: Mood?) = viewModelScope.launch { settings.update { it.copy(mood = m) }; regenerate++; generate() }
+
+    fun setFreshPairs(on: Boolean) = viewModelScope.launch { settings.update { it.copy(freshPairsOnly = on) }; regenerate++; generate() }
+
+    fun setAccent(f: ColorFamily?) { _state.update { it.copy(accent = f) }; regenerate++; generate() }
+
+    fun setVogue(on: Boolean) { _state.update { it.copy(vogue = on) }; regenerate++; generate() }
+
+    /** Mid layers on/off: a new deck straight away. */
+    fun setNoMid(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(midLayersOff = on) }
+        regenerate++
+        generate()
+    }
+
+    /** Experiment on/off: a new deck straight away in the new mode. */
+    fun setExperiment(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(experimentMode = on) }
+        regenerate++
+        generate()
+    }
     fun bolder() { regenerate++; boldShift = (boldShift + 0.2).coerceAtMost(0.6); generate() }
     fun safer() { regenerate++; boldShift = (boldShift - 0.2).coerceAtLeast(-0.4); generate() }
 
@@ -140,9 +206,12 @@ class TodayViewModel @Inject constructor(
         job = viewModelScope.launch {
             _state.update { it.copy(loading = true) }
             val w = studio.dayWeather(s.epochDay, sc)
-            val (c, deck) = studio.deck(s.epochDay, sc, regenerate, s.locked, boldShift, w.window)
+            val (c, deck) = studio.deck(s.epochDay, sc, regenerate, s.locked, boldShift, w.window, DeckOptions(s.accent, s.vogue))
             ctx = c
-            _state.update { it.copy(weather = w, cards = deck.cards, loading = false, whyNotFor = null) }
+            // Colours you could build the day around: those of your available clothes, most common first.
+            val choices = c.items.values.filter { it.isAvailable && it.primarySlot.isCore }.mapNotNull { it.primaryColor?.family }
+                .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
+            _state.update { it.copy(weather = w, cards = deck.cards, loading = false, whyNotFor = null, accentChoices = choices) }
             if (s.epochDay == time.today() && regenerate == 0) deck.cards.firstOrNull()?.let { top ->
                 WidgetState.save(app, top, c.items, w.window, sc.name)
             }

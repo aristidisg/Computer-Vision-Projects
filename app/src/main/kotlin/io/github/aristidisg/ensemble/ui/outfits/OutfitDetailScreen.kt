@@ -1,5 +1,10 @@
 package io.github.aristidisg.ensemble.ui.outfits
 
+import io.github.aristidisg.ensemble.ui.common.techniqueBlurb
+import io.github.aristidisg.ensemble.ui.common.techniqueName
+import io.github.aristidisg.ensemble.ui.common.tipText
+import io.github.aristidisg.ensemble.ui.theme.HeroStyle
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,6 +70,12 @@ fun OutfitDetailScreen(route: OutfitDetailRoute, nav: NavHostController, vm: Out
                 Text(stringResource(R.string.match_pct, o.matchPct), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                 Text(o.harmony, style = MaterialTheme.typography.labelLarge)
             }
+            Text(techniqueName(o.technique), style = HeroStyle)
+            Text(techniqueBlurb(o.technique), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (o.tips.isNotEmpty()) {
+                Text(stringResource(R.string.how_to_wear), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 10.dp))
+                o.tips.forEach { t -> Text("— " + tipText(t), style = MaterialTheme.typography.bodyMedium, color = LocalEnsembleColors.current.accent) }
+            }
             s.cooldown?.let { Text(stringResource(R.string.cooldown_badge, it.toInt()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             o.violation?.let { Text(stringResource(R.string.breaks_rule, it.name.lowercase().replace('_', ' ')), color = MaterialTheme.colorScheme.error) }
             o.pieces.forEach { p ->
@@ -95,6 +107,10 @@ fun OutfitDetailScreen(route: OutfitDetailRoute, nav: NavHostController, vm: Out
                 OutlinedButton(onClick = { planPicker = true }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.plan_for)) }
                 OutlinedButton(onClick = { vm.neverAgain { nav.popBackStack() } }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.never_again)) }
             }
+            s.plannedFor?.let { d ->
+                Text("✓ " + stringResource(R.string.planned_for, java.time.LocalDate.ofEpochDay(d).format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM))),
+                    color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+            }
             TextButton(onClick = { debug = !debug }) { Text(stringResource(R.string.rule_scores)) }
             if (debug) {
                 o.groupScores.forEach { (g, v) -> Text("${g.label}: ${"%.2f".format(v)}", style = MaterialTheme.typography.labelLarge) }
@@ -111,7 +127,10 @@ fun OutfitDetailScreen(route: OutfitDetailRoute, nav: NavHostController, vm: Out
             title = { Text(stringResource(R.string.swap_title, slot.label.lowercase())) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    s.alternatives.forEach { a ->
+                    val alts = s.alternatives
+                    if (alts == null) CircularProgressIndicator()
+                    else if (alts.isEmpty()) Text(stringResource(R.string.no_alternatives))
+                    alts.orEmpty().forEach { a ->
                         Row(Modifier.fillMaxWidth().clickable { vm.swap(slot, a.item.id); swapSlot = null }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             ItemArt(a.item, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(LocalEnsembleColors.current.backdrop).padding(4.dp))
                             Text(a.item.name, Modifier.weight(1f).padding(start = 8.dp))

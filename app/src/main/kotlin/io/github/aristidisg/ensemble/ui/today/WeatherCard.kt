@@ -1,8 +1,15 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.today
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,7 +64,7 @@ fun WeatherCard(s: TodayState, onRefresh: () -> Unit, onManual: () -> Unit) {
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.feels_range, w.feelsMin.roundToInt(), w.feelsMax.roundToInt()), style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(stringResource(R.string.rain_pct, w.rainProbMax.roundToInt()), style = MaterialTheme.typography.bodySmall)
                     Text(stringResource(R.string.wind_kmh, w.windMax.roundToInt()), style = MaterialTheme.typography.bodySmall)
                     if (w.uvMax >= 3) Text(stringResource(R.string.uv_index, w.uvMax.roundToInt()), style = MaterialTheme.typography.bodySmall)
@@ -78,5 +85,46 @@ fun WeatherCard(s: TodayState, onRefresh: () -> Unit, onManual: () -> Unit) {
             IconButton(onClick = onManual) { Icon(Icons.Outlined.Edit, stringResource(R.string.manual_temp)) }
             IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, stringResource(R.string.refresh_weather)) }
         }
+    }
+}
+
+/** Compact weather for the Today header: tap to set the temperature by hand. */
+@Composable
+fun WeatherPill(s: TodayState, onRefresh: () -> Unit, onManual: () -> Unit, modifier: Modifier = Modifier) {
+    val dw = s.weather ?: return
+    val w = dw.window
+    val uri = LocalUriHandler.current
+    Column(modifier, horizontalAlignment = Alignment.End) {
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .clickable(onClick = onManual).padding(start = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(weatherIcon(w.code), WeatherWindow.describe(w.code), Modifier.size(20.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.feels_range, w.feelsMin.roundToInt(), w.feelsMax.roundToInt()), style = MaterialTheme.typography.titleSmall)
+            if (w.rainProbMax >= 20) {
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.rain_pct, w.rainProbMax.roundToInt()), style = MaterialTheme.typography.labelSmall)
+            }
+            IconButton(onClick = onRefresh, modifier = Modifier.size(36.dp)) { Icon(Icons.Outlined.Refresh, stringResource(R.string.refresh_weather), Modifier.size(18.dp)) }
+        }
+        if (dw.fromForecast) Text(
+            stringResource(R.string.weather_attribution), style = MaterialTheme.typography.labelSmall.copy(textDecoration = TextDecoration.Underline),
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, end = 8.dp).clickable { uri.openUri(OpenMeteoClient.ATTRIBUTION_URL) },
+        )
+    }
+}
+
+/** The line under the date: the place, or why the weather is manual / stale / missing. */
+@Composable
+fun weatherSubtitle(s: TodayState): String? {
+    val dw = s.weather ?: return s.weatherError
+    return when {
+        dw.window.manual -> stringResource(R.string.manual_temp)
+        !dw.fromForecast && s.weatherError != null -> s.weatherError
+        dw.fetchedAtMillis != null && System.currentTimeMillis() - dw.fetchedAtMillis > 3 * 3600_000L ->
+            stringResource(R.string.offline_age, DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(dw.fetchedAtMillis)))
+        else -> s.place
     }
 }

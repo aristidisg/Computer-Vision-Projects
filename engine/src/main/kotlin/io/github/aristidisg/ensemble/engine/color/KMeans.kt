@@ -107,8 +107,9 @@ object KMeans {
         }
 
     fun itemColor(hex: String, share: Double = 1.0, role: ColorRole = ColorRole.PRIMARY, family: ColorFamily? = null): ItemColor {
-        val lab = ColorScience.hexToLab(hex)
-        return ItemColor(hex.uppercase(), lab.l, lab.a, lab.b, family ?: ColorScience.nearestFamily(lab), share, role)
+        val exact = ColorScience.normalizeHex(hex) ?: throw IllegalArgumentException("Not a hex color: $hex")
+        val lab = ColorScience.hexToLab(exact)
+        return ItemColor(exact, lab.l, lab.a, lab.b, family ?: ColorScience.nearestFamily(lab), share, role)
     }
 }
 

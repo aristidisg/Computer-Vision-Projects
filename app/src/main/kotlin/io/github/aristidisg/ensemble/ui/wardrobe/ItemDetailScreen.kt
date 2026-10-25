@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.wardrobe
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -38,6 +41,8 @@ import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.domain.Studio
 import io.github.aristidisg.ensemble.domain.TimeSource
 import io.github.aristidisg.ensemble.engine.generator.PairCache
+import io.github.aristidisg.ensemble.engine.rules.HardConstraints
+import io.github.aristidisg.ensemble.engine.rules.Violation
 import io.github.aristidisg.ensemble.engine.rules.Placed
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.model.Item
@@ -70,6 +75,9 @@ data class ItemDetail(
     val items: Map<String, Item>,
     val scenarioId: String,
     val day: Long,
+    /** Why today's deck can't use this piece at all (null: it can). */
+    val blocked: Violation? = null,
+    val scenarioName: String = "",
 )
 
 @HiltViewModel
@@ -81,9 +89,13 @@ class ItemDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val _d = MutableStateFlow<ItemDetail?>(null)
     val detail = _d.asStateFlow()
+    private val _gone = MutableStateFlow(false)
+    /** True once the piece no longer exists (deleted from the editor): the screen closes. */
+    val gone = _gone.asStateFlow()
 
     fun load(id: String) = viewModelScope.launch {
-        val item = wardrobe.get(id) ?: return@launch
+        val item = wardrobe.get(id)
+        if (item == null) { _gone.value = true; return@launch }
         val logs = wear.all().filter { l -> l.pieces.any { it.itemId == id } }
         val day = time.today()
         val scenario = studio.scenario(studio.defaultScenarioId(day))
@@ -96,7 +108,8 @@ class ItemDetailViewModel @Inject constructor(
                 .sortedByDescending { cache.score(me, Placed(it, it.slots.first())) }.take(6)
             p to if (item.slots.first().isCore) studio.engine.complete(listOf(OutfitPiece(id, item.slots.first())), ctx, all, 4) else emptyList()
         }
-        _d.value = ItemDetail(item, logs.size, logs.maxOfOrNull { it.epochDay }?.let { day - it }, pairs, outfits, ctx.items, scenario.id, day)
+        _d.value = ItemDetail(item, logs.size, logs.maxOfOrNull { it.epochDay }?.let { day - it }, pairs, outfits, ctx.items, scenario.id, day,
+            HardConstraints.whyNotSuggested(item, ctx), scenario.name)
     }
 
     fun setStatus(s: ItemStatus) = viewModelScope.launch {
@@ -112,6 +125,8 @@ class ItemDetailViewModel @Inject constructor(
 fun ItemDetailScreen(id: String, nav: NavHostController, vm: ItemDetailViewModel = hiltViewModel()) {
     LaunchedEffect(id) { vm.load(id) }
     val d by vm.detail.collectAsStateWithLifecycle()
+    val gone by vm.gone.collectAsStateWithLifecycle()
+    LaunchedEffect(gone) { if (gone) nav.popBackStack() }
     Column {
         BackBar(d?.item?.name ?: "", onBack = { nav.popBackStack() }) {
             IconButton(onClick = { nav.navigate(ItemEditorRoute(itemId = id)) }) { Icon(Icons.Outlined.Edit, stringResource(R.string.edit)) }
@@ -121,10 +136,14 @@ fun ItemDetailScreen(id: String, nav: NavHostController, vm: ItemDetailViewModel
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
             ItemArt(i, Modifier.fillMaxWidth().height(280.dp).clip(RoundedCornerShape(20.dp)).background(LocalEnsembleColors.current.backdrop).padding(12.dp), thumb = false)
             Text("${i.subcategory.label} · ${i.silhouette.label} · ${stringResource(R.string.formality)} ${i.formality}/10", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 6.dp)) {
-                i.colors.forEach { ColorDot(it.hex, it.family.label) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 6.dp)) {
+                i.colors.forEach { ColorDot(it.hex, "${it.family.label} ${it.hex}") }
             }
             Text(listOfNotNull(i.pattern.type.label, i.materials.joinToString { it.label }.ifEmpty { null }, i.styleTags.joinToString { it.label }).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+            x.blocked?.let { v ->
+                Text(stringResource(R.string.not_suggested_today, x.scenarioName) + " " + stringResource(violationText(v)),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+            }
             SectionTitle(stringResource(R.string.wears))
             Text("${x.wears} · " + (x.lastWornDaysAgo?.let { stringResource(R.string.days_ago, it.toInt()) } ?: stringResource(R.string.never_worn)))
             i.meta.price?.let { p ->
@@ -151,4 +170,16 @@ fun ItemDetailScreen(id: String, nav: NavHostController, vm: ItemDetailViewModel
             }
         }
     }
+}
+
+/** Plain-language reason for a hard block. */
+private fun violationText(v: Violation): Int = when (v) {
+    Violation.UNAVAILABLE -> R.string.why_unavailable
+    Violation.NEVER_SUGGEST -> R.string.why_never_suggest
+    Violation.HIDDEN -> R.string.why_hidden
+    Violation.WEATHER -> R.string.why_weather
+    Violation.SCENARIO -> R.string.why_scenario
+    Violation.PERSONAL_NEVER -> R.string.why_personal
+    Violation.ROTATION -> R.string.why_rotation
+    else -> R.string.why_other
 }

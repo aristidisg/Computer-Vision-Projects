@@ -3,11 +3,17 @@ package io.github.aristidisg.ensemble.ui.wardrobe
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.graphics.BitmapFactory
+import io.github.aristidisg.ensemble.data.files.ImageStore
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
 import io.github.aristidisg.ensemble.domain.WardrobeCleaner
+import io.github.aristidisg.ensemble.engine.ColorEdits
+import io.github.aristidisg.ensemble.engine.EngineContext
 import io.github.aristidisg.ensemble.engine.color.ColorScience
+import io.github.aristidisg.ensemble.engine.planner.Routines
+import io.github.aristidisg.ensemble.engine.planner.SwapPlan
 import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.ItemStatus
@@ -17,10 +23,14 @@ import io.github.aristidisg.ensemble.model.StyleTag
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import io.github.aristidisg.ensemble.photo.ImageOps
 import javax.inject.Inject
 
 enum class WardrobeSort { RECENT, MOST_WORN, LEAST_WORN, FORMALITY, HUE }
@@ -50,6 +60,7 @@ class WardrobeViewModel @Inject constructor(
     wear: WearRepository,
     private val time: TimeSource,
     private val cleaner: WardrobeCleaner,
+    private val images: ImageStore,
 ) : ViewModel() {
     private val filter = MutableStateFlow(WardrobeFilter())
     private val selected = MutableStateFlow(emptySet<String>())
@@ -103,9 +114,53 @@ class WardrobeViewModel @Inject constructor(
         clearSelection()
     }
 
+    private val _busy = MutableStateFlow(false)
+    /** True while colors are being re-read from photos. */
+    val busy = _busy.asStateFlow()
+
+    /**
+     * Re-reads the colors of the selected pieces from their cutouts with the current color
+     * reader. Pieces without a photo are left as they are; typed names are kept.
+     */
+    fun bulkRereadColors() = viewModelScope.launch {
+        val ids = selected.value
+        _busy.value = true
+        withContext(Dispatchers.Default) {
+            wardrobe.all().filter { it.id in ids }.forEach { i ->
+                val file = images.resolve(i.photos.cutout) ?: return@forEach
+                val bmp = BitmapFactory.decodeFile(file.path) ?: return@forEach
+                val colors = ImageOps.extractColors(bmp)
+                if (colors.isNotEmpty()) wardrobe.upsert(ColorEdits.apply(i, colors), time.nowMillis())
+            }
+        }
+        _busy.value = false
+        clearSelection()
+    }
+
     fun bulkSeasons(seasons: Set<Season>) = viewModelScope.launch {
         val ids = selected.value
         wardrobe.all().filter { it.id in ids }.forEach { wardrobe.upsert(it.copy(seasons = seasons), time.nowMillis()) }
         clearSelection()
+    }
+
+    private val _swap = MutableStateFlow<Pair<Season, SwapPlan>?>(null)
+    /** The pending seasonal swap, shown for confirmation before anything changes. */
+    val swap = _swap.asStateFlow()
+
+    fun previewSwap() = viewModelScope.launch {
+        val season = EngineContext.seasonOf(time.today())
+        _swap.value = season to Routines.seasonalSwap(wardrobe.all(), season)
+    }
+
+    fun dismissSwap() { _swap.value = null }
+
+    /** Off-season pieces go to storage (never suggested), in-season stored pieces come back. */
+    fun applySwap() = viewModelScope.launch {
+        val (_, plan) = _swap.value ?: return@launch
+        _swap.value = null
+        val now = time.nowMillis()
+        // Re-read each piece so an edit made while the dialog was open isn't overwritten.
+        val target = plan.store.associate { it.id to ItemStatus.STORED } + plan.restore.associate { it.id to ItemStatus.AVAILABLE }
+        wardrobe.all().filter { it.id in target }.forEach { wardrobe.upsert(it.copy(status = target.getValue(it.id)), now) }
     }
 }

@@ -44,17 +44,134 @@ Actions is the build machine (see DECISIONS.md).
 - [x] **Phase 11 — Polish and release readiness (first pass).** Onboarding, morning
   notification with Wear it / See more, Glance widget, export/import zip with preview,
   weekly backup folder, delete-all with typed confirmation, R8 release build, app icon.
+- [x] **Colour accuracy and wardrobe routines.**
+  - **Exact colours.** Every colour has an editable code (#fff or #3B2A22). The rules use the
+    exact code, and the family name is only a label.
+  - **Multicolour pieces.** Up to 6 colours, each with a share slider. Roles (primary,
+    secondary, accent) follow the shares.
+  - **Dark browns no longer read as navy.** Family matching weights hue twice as much as
+    lightness, and white balance is off by default; Auto now averages only the background.
+  - **Editor fixes.** Save is always visible, and "Same as…" copies every tag from another
+    piece.
+  - **Wardrobe routines.** Seasonal swap, a shopping list fed by the gap finder, and a
+    "Wear it again" row in Outfits → Saved.
+  - **Layout.** Rows that squeezed text into one letter per line now wrap or scroll.
+- [x] **Rotation and colour clashes.**
+  - **Deck rotation without wear logs.** Each deck remembers the pieces it showed. Pieces shown
+    in most of the last 5 decks give way, and a card loses points for every piece already used
+    in the same deck.
+  - **No forgotten pieces.** The beam search keeps at least one outfit for every eligible
+    piece, so pieces with modest pairing scores still reach the deck.
+  - **Clash table.** Olive, forest or Kelly green with pink or dusty pink (rose), and bright
+    green with red, are known clashes. C7 now weighs them heavily, even when the hue maths
+    rates them as complementary.
+- [x] **Saved outfits shape suggestions, and a label check.**
+  - **"My collection" boost.** Outfits close to the ones you saved or composed (same colour
+    pairs, some of the same pieces) get up to +0.2 Match and the line "Close to outfits you
+    saved". The saved outfit itself gets no boost.
+  - **Off switch.** Outfits → Saved has a switch for this. Off removes the boost, stops saves and
+    compositions from teaching taste, and replays the log so past saves stop counting too.
+  - **Check labels** (Wardrobe → ⋮) flags tops, mid layers and outer layers that look misfiled:
+    - a typed name that says otherwise;
+    - materials that say otherwise (knit-only outerwear, leather mid layers);
+    - an ML Kit photo hint, when hints are on;
+    - layers changed by hand.
+    Each flag has a one-tap fix, a picker and "It's right". Every mid and outer layer is also
+    listed for a manual pass.
+  - **Category picker** now splits Tops from Mid layers and labels Outer layers.
+- [x] **No-outerwear switch and Match by eye** (full-screen colour matcher: hue, lightness and
+  saturation strips, plus fine drag).
+- [x] **Layering, stylist techniques, bold Today.**
+  - Layering: a top under a pullover mid layer (hoodie, sweatshirt, knit) counts as almost
+    hidden; under an open layer it still shows. The collage fades it and tags it "under".
+  - "No mid layers" chip on Today and switch in Style profile (locked mid layers still count).
+  - Ten stylist techniques (monochrome, tonal, colour block, sandwich, one statement,
+    high-low, soft layers, third piece, texture play, light & dark) score a bonus and head the
+    card. The deck mixes techniques and avoids repeating the same upper/bottom colours.
+  - Today redesign: compact date + weather pill header, one chip row, the card's collage as
+    the hero with technique headline, Match badge, palette dots and a colour wash; vermilion
+    accent. Fixes the squashed collage on small screens. The date is always in English.
+- [x] **Stylist tools.**
+  - Pieces you build around or lock stay visible: no white tee under a hoodie and a closed
+    coat in Item detail, Today locks or "Complete it". Turn and signature cards show their piece.
+  - How to wear it: tuck, roll, cuff and collar tips (a data table) on the card, the outfit
+    detail and the lookbook.
+  - Moods: Seoul minimal, Italian summer, '90s street, old money, workwear, gorpcore (Today's
+    Mood chip, saved).
+  - Accent: build today's deck around one colour from your wardrobe (this deck only).
+  - Signature pieces get their own card in each deck, a different one each day.
+  - Fresh pairs: only clothes never shown or worn together.
+  - ✦ Vogue stylist: six cover looks, each with a technique, finished with accessories and two
+    cover lines.
+  - Insights: "This week" variety card (score, pieces used, colours, repeats, unworn 30 days);
+    the gap finder skips what you own, lists one per kind of piece (two per colour) and says
+    what each pairs with, which forgotten pieces it rescues and which techniques it opens up.
+  - Lookbook (Outfits → Lookbook): saved and composed outfits as full-screen editorial pages.
+  - New app icon: ivory monogram and vermilion spark on ink.
+- [x] **Fresh outfits, experiment, colours, layers.**
+  - Outfits shown in the last 3 days are held back.
+  - ✦ Experiment mode.
+  - Item seasons now count (weather-aware).
+  - "Worn as" chips in the item form.
+  - Greek name hints.
+  - The why-not bar stays.
+  - The deck rebuilds when a card no longer fits a piece.
+  - Shade-aware photo colours with "Re-read colours".
+- [x] **Fair-share rotation.**
+  - Each piece is held to its fair share within a deck. Over-used pieces are swapped out when
+    that costs at most 0.08 Match.
+  - Over- and under-use across days shift scores.
+  - 2 "Give it a turn" cards per deck go to the least-shown pieces.
+  - "More" decks move on from what you just saw.
+  - The item page explains why a piece isn't suggested today.
+- [x] **Speed and battery.**
+  - The deck shows at once from the cached forecast.
+  - Location uses the free last-known fix when the forecast is fresh, never turns on GPS, and
+    caches city names.
+  - Daily jobs are no longer re-enqueued on every launch; backup waits for good battery.
+  - Check labels caches ML results.
+  - Learned stats stay in memory.
+  - A baseline profile with profileinstaller compiles our code ahead of time.
+  - The saved-outfit switch is also on the Composed tab: your compositions count, and the
+    composer's Complete it uses the boost.
+- [x] **Bug sweep.**
+  - **Colour names.** Tinted near-blacks (deep navy) are never called black. Denim names are
+    used only for denim pieces. A new Blue family covers mid and royal blues. Stored pieces are
+    renamed once on update; typed names are kept.
+  - **Check labels.** The picker now has an explicit Save and a "Saved: …" confirmation. "It's
+    right" is remembered, and fixes apply to the piece as stored now.
+  - **Editor.**
+    - Changing material, pattern or fabric weight no longer resets hand-set formality or seasons.
+    - Colour shares always add up to 100 %.
+    - An empty cutout can't erase a piece's colours.
+    - Deleting a piece also removes its outfits and plans, and its detail page closes.
+  - **Deck.**
+    - Rebuilt when pieces are added or deleted elsewhere.
+    - Rotation uses earlier days only, so reopening the app doesn't reshuffle today's deck.
+    - Undo after Save removes the saved outfit.
+    - Flicks count as swipes.
+    - The "Why not?" timer restarts for every No.
+  - **Outfits.**
+    - "Saved" can be tapped to un-save.
+    - Swap shows a spinner, then "nothing else fits" when empty.
+    - The composer can't put one piece in two slots and marks pieces in the laundry.
+    - "Plan for…" confirms.
+  - **Plan.** Plans made elsewhere show up immediately; opening Laundry no longer re-plans the
+    week.
+  - **App.** Rotating the phone no longer re-runs a share or notification action. Seasonal swap
+    re-reads pieces before writing. `!!` removed from import, wear logging and C8.
 
 ## Tests
 
-- :engine — 73 tests: color conversions against reference values, artist-hue anchors,
+- :engine — 163 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,
   gap finder, recreate, weather windows, **all 18 golden cases**, 300-item benchmark
   (~0.3 s on a desktop JVM; limit 1.5 s).
 - :data — Robolectric: items round trip, outfits by signature, stats = rebuild, scenario
-  overlay, export → delete → import, Open-Meteo parsing from recorded fixtures.
+  overlay, export → delete → import, Open-Meteo parsing from recorded fixtures, settings
+  saved before the shopping list existed still load, deck log reads old and new formats.
 
 ## Next
 
@@ -77,3 +194,7 @@ Actions is the build machine (see DECISIONS.md).
 - Category hints rely on ML Kit's general labels, which are coarse; the subcategory grid is
   always shown underneath.
 - Glance widget shows names and color dots, not photos.
+- Colours from a photo are only as good as the light: under warm indoor light, type the code
+  (or use the eyedropper) for pieces that matter.
+- The shopping list is a simple checklist; ticking an entry off doesn't add the piece to the
+  wardrobe.

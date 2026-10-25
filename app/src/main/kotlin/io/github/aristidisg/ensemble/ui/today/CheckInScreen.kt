@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.today
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -89,7 +92,7 @@ fun CheckInScreen(logId: String?, nav: NavHostController, vm: CheckInViewModel =
             Text(stringResource(R.string.comfort), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
             Scale(comfort) { comfort = it }
             Text(stringResource(R.string.temperature), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(Thermal.TOO_COLD to R.string.too_cold, Thermal.OK to R.string.just_right, Thermal.TOO_WARM to R.string.too_warm).forEach { (t, label) ->
                     FilterChip(selected = thermal == t, onClick = { thermal = t }, label = { Text(stringResource(label)) })
                 }

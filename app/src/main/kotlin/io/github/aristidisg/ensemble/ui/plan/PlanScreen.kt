@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ import kotlin.math.roundToInt
 @Composable
 fun PlanScreen(nav: NavHostController, vm: PlanViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.checkReplan() }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 12.dp)) {
             Text(stringResource(R.string.tab_plan), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))

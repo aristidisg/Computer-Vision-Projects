@@ -9,11 +9,15 @@ import io.github.aristidisg.ensemble.data.files.ImageStore
 import io.github.aristidisg.ensemble.data.repo.FeedbackRepository
 import io.github.aristidisg.ensemble.data.repo.OutfitRepository
 import io.github.aristidisg.ensemble.data.repo.RuleRepository
+import io.github.aristidisg.ensemble.data.repo.DataJson
+import io.github.aristidisg.ensemble.data.repo.DeckCardLog
+import io.github.aristidisg.ensemble.data.repo.DeckLog
 import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.weather.OpenMeteoClient
 import io.github.aristidisg.ensemble.engine.DemoWardrobe
 import io.github.aristidisg.ensemble.engine.learning.LearningConfig
+import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.ContextSnapshot
 import io.github.aristidisg.ensemble.model.FeedbackEvent
 import io.github.aristidisg.ensemble.model.FeedbackType
@@ -21,7 +25,10 @@ import io.github.aristidisg.ensemble.model.LatLon
 import io.github.aristidisg.ensemble.model.Outfit
 import io.github.aristidisg.ensemble.model.OutfitPiece
 import io.github.aristidisg.ensemble.model.Season
+import io.github.aristidisg.ensemble.model.Settings
+import io.github.aristidisg.ensemble.model.ShoppingEntry
 import io.github.aristidisg.ensemble.model.Slot
+import io.github.aristidisg.ensemble.model.Subcategory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -78,7 +85,10 @@ class DataLayerTest {
         val incremental = repo.currentStats()
         repo.rebuild(0, cfg)
         assertEquals(incremental, repo.currentStats())
+        // The in-memory copy always equals what is stored.
+        assertEquals(repo.currentStats(), FeedbackRepository(db).currentStats())
         repo.hardReset()
+        assertEquals(FeedbackRepository(db).currentStats(), repo.currentStats())
         assertTrue(repo.events().isEmpty())
     }
 
@@ -107,6 +117,28 @@ class DataLayerTest {
         backup.import(ByteArrayInputStream(out.toByteArray()), replace = true)
         assertEquals(demo().size, WardrobeRepository(db).count())
         assertEquals("jpeg", images.original("tee-white").readText())
+    }
+
+    @Test fun settingsWithoutShoppingListStillLoad() {
+        // Settings saved by earlier versions have no shoppingList; they must decode, not reset.
+        val old = DataJson.encodeToString(Settings.serializer(), Settings(boldness = 0.7))
+            .replace(Regex(",?\"shoppingList\":\\[\\]"), "")
+        assertTrue("shoppingList" !in old)
+        val loaded = DataJson.decodeFromString(Settings.serializer(), old)
+        assertEquals(0.7, loaded.boldness, 1e-9)
+        assertTrue(loaded.shoppingList.isEmpty())
+        val entry = ShoppingEntry("e", Subcategory.CHINOS, ColorFamily.OLIVE, "#6B6B3A", unlocks = 4)
+        val withList = Settings(shoppingList = listOf(entry))
+        assertEquals(withList, DataJson.decodeFromString(Settings.serializer(), DataJson.encodeToString(Settings.serializer(), withList)))
+    }
+
+    @Test fun deckLogReadsOldAndNewFormats() {
+        assertEquals(listOf(DeckCardLog("abc"), DeckCardLog("def")), DeckLog.decode("[\"abc\",\"def\"]"))
+        val cards = listOf(DeckCardLog("s1", listOf("tee", "jeans")), DeckCardLog("s2", listOf("tee", "chinos")))
+        assertEquals(cards, DeckLog.decode(DeckLog.encode(cards)))
+        assertTrue(DeckLog.decode("not json").isEmpty())
+        // Counted per card that showed the piece.
+        assertEquals(mapOf("tee" to 3, "jeans" to 1, "chinos" to 1), DeckLog.exposure(cards + DeckCardLog("s3", listOf("tee"))))
     }
 
     @Test fun parsesRecordedForecast() {

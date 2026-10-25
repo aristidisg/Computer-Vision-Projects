@@ -1,9 +1,14 @@
 package io.github.aristidisg.ensemble.engine
 
 import io.github.aristidisg.ensemble.engine.learning.PreferenceSnapshot
+import io.github.aristidisg.ensemble.engine.rules.CollectionProfile
+import io.github.aristidisg.ensemble.engine.rules.CollectionRules
+import io.github.aristidisg.ensemble.engine.tables.MoodTable
 import io.github.aristidisg.ensemble.engine.tables.WarmthTable
+import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.CustomRule
 import io.github.aristidisg.ensemble.model.Item
+import io.github.aristidisg.ensemble.model.OutfitPiece
 import io.github.aristidisg.ensemble.model.Scenario
 import io.github.aristidisg.ensemble.model.Season
 import io.github.aristidisg.ensemble.model.Settings
@@ -43,6 +48,12 @@ class WearHistory(val logs: List<WearLog>) {
     }
 }
 
+/**
+ * Choices made on Today for one deck (not saved): a colour to build around, and Vogue stylist
+ * mode (cover looks: a clear technique, finished with accessories, styling notes).
+ */
+data class DeckOptions(val accent: ColorFamily? = null, val vogue: Boolean = false)
+
 /** Everything a rule may look at. Time and randomness are passed in; nothing is read from the system. */
 data class EngineContext(
     val scenario: Scenario,
@@ -57,19 +68,56 @@ data class EngineContext(
     val plannedSoon: Set<String> = emptySet(),
     /** Signatures shown in the last 3 decks (R4). */
     val recentDeckSignatures: Set<String> = emptySet(),
+    /** Per item: on how many cards it was shown in recent days' decks (fair-share rotation). */
+    val recentDeckItems: Map<String, Int> = emptyMap(),
+    /** Total cards those decks showed. */
+    val recentDeckCount: Int = 0,
+    /**
+     * Core-piece signatures of outfits shown in recent decks: new decks hold them back so you
+     * see new combinations instead of the same outfits again.
+     */
+    val shownOutfits: Set<String> = emptySet(),
     /** Outfit signatures the user explicitly allowed despite a cooldown ("Use anyway"). */
     val cooldownOverrides: Set<String> = emptySet(),
     /** Per-outfit cooldown overrides keyed by signature. */
     val outfitCooldowns: Map<String, Int> = emptyMap(),
     /** Signatures marked "never show again". */
     val neverAgain: Set<String> = emptySet(),
+    /** Saved and liked outfits ("my collection"), used when savedOutfitsInfluence is on. */
+    val collection: List<List<OutfitPiece>> = emptyList(),
+    val options: DeckOptions = DeckOptions(),
+    /** Core-piece pairs (see [pairKey]) shown together in recent decks or worn together (fresh-pairs mode). */
+    val shownPairs: Set<String> = emptySet(),
 ) {
+    /** Precomputed pieces and color-family pairs of the collection. */
+    val collectionProfiles: List<CollectionProfile> by lazy { CollectionRules.profiles(this) }
+
     val date: LocalDate get() = LocalDate.ofEpochDay(epochDay)
     val weekday: Int get() = date.dayOfWeek.value
     val season: Season get() = seasonOf(epochDay)
 
-    /** Boldness after the strictness preset and learned "too boring / too loud" nudges. */
-    val boldness: Double get() = (settings.boldness + prefs.boldnessDelta).coerceIn(0.0, 1.0)
+    /**
+     * Seasons a piece may belong to today: the calendar season, plus summer on a day that feels
+     * like summer and winter on one that feels like winter (a 28 °C October afternoon is linen
+     * weather).
+     */
+    val seasonsNow: Set<Season> get() = buildSet {
+        add(season)
+        if (weather.feelsMid >= 22.0) add(Season.SUMMER)
+        if (weather.feelsMid <= 8.0) add(Season.WINTER)
+        if (weather.feelsMid in 12.0..22.0) { add(Season.SPRING); add(Season.AUTUMN) }
+    }
+
+    /** Boldness after the strictness preset and learned "too boring / too loud" nudges (+ experiment). */
+    val boldness: Double get() = (settings.boldness + prefs.boldnessDelta + (if (settings.experimentMode) EXPERIMENT_BOLDNESS else 0.0) +
+        (settings.mood?.let { MoodTable.of(it).boldness } ?: 0.0) + (if (options.vogue) VOGUE_BOLDNESS else 0.0)).coerceIn(0.0, 1.0)
+
+    /** Experiment loosens the style rules as the Adventurous preset does. */
+    val strictness: io.github.aristidisg.ensemble.model.Strictness get() =
+        if (settings.experimentMode) io.github.aristidisg.ensemble.model.Strictness.ADVENTUROUS else settings.strictness
+
+    /** Share of new-idea cards in a deck. */
+    val explorationRate: Double get() = if (settings.experimentMode) maxOf(settings.explorationRate, EXPERIMENT_EXPLORATION) else settings.explorationRate
 
     /** Thermal offset in °C: positive means the user runs cold and wants more warmth. */
     val thermalOffset: Double get() = settings.thermalBias + prefs.thermalOffset
@@ -88,6 +136,16 @@ data class EngineContext(
     fun ruleWeight(id: String, default: Double = 1.0): Double = settings.ruleWeights[id] ?: default
 
     companion object {
+        /** Experiment mode: extra boldness, share of new-idea cards, weight left to learned taste. */
+        const val EXPERIMENT_BOLDNESS = 0.35
+        const val EXPERIMENT_EXPLORATION = 0.4
+        const val EXPERIMENT_LEARNED = 0.4
+        /** Vogue stylist: cover looks are a little braver than everyday ones. */
+        const val VOGUE_BOLDNESS = 0.2
+
+        /** Order-free key for two pieces worn or shown together. */
+        fun pairKey(a: String, b: String): String = if (a < b) "$a|$b" else "$b|$a"
+
         /** Northern-hemisphere meteorological seasons. */
         fun seasonOf(epochDay: Long): Season = when (LocalDate.ofEpochDay(epochDay).monthValue) {
             12, 1, 2 -> Season.WINTER

@@ -107,6 +107,9 @@ fun ComposerScreen(route: ComposerRoute, nav: NavHostController, vm: OutfitViewM
                         Column(Modifier.clickable { vm.swap(slot, i.id); picking = null }) {
                             ItemArt(i, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp)).background(LocalEnsembleColors.current.backdrop).padding(4.dp))
                             Text(i.name, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                            if (i.status != io.github.aristidisg.ensemble.model.ItemStatus.AVAILABLE) {
+                                Text(i.status.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, maxLines = 1)
+                            }
                         }
                     }
                 }

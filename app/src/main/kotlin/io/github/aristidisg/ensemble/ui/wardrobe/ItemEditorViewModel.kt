@@ -11,10 +11,11 @@ import io.github.aristidisg.ensemble.data.files.ImageStore
 import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
+import io.github.aristidisg.ensemble.domain.WardrobeCleaner
+import io.github.aristidisg.ensemble.engine.ColorEdits
 import io.github.aristidisg.ensemble.engine.ItemFactory
 import io.github.aristidisg.ensemble.engine.color.ColorScience
 import io.github.aristidisg.ensemble.engine.color.KMeans
-import io.github.aristidisg.ensemble.model.ColorRole
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.ItemColor
 import io.github.aristidisg.ensemble.model.ItemPhotos
@@ -29,6 +30,8 @@ import io.github.aristidisg.ensemble.photo.ImageOps
 import io.github.aristidisg.ensemble.photo.Mask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -48,7 +51,8 @@ data class EditorState(
     val cutout: Bitmap? = null,
     val mask: Mask? = null,
     val usedMlKit: Boolean = false,
-    val wbMode: WbMode = WbMode.AUTO,
+    /** Off by default: the phone camera already white-balances; Auto uses the background only. */
+    val wbMode: WbMode = WbMode.OFF,
     val tool: EditorTool = EditorTool.NONE,
     val brushSize: Float = 16f,
     val tolerance: Float = 0.08f,
@@ -57,6 +61,8 @@ data class EditorState(
     /** Colors k-means found in the latest cutout; used when the draft is created. */
     val detected: List<ItemColor> = emptyList(),
     val draft: Item? = null,
+    /** Once the user edits colors by hand, photo changes no longer overwrite them. */
+    val colorsEdited: Boolean = false,
     val existing: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null,
@@ -69,8 +75,11 @@ class ItemEditorViewModel @Inject constructor(
     private val images: ImageStore,
     private val settings: SettingsRepository,
     private val time: TimeSource,
+    private val cleaner: WardrobeCleaner,
 ) : ViewModel() {
     private val _s = MutableStateFlow(EditorState())
+    /** For the "Same as…" picker. */
+    val wardrobeItems = wardrobe.items.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val state = _s.asStateFlow()
     private var gains = Gains.IDENTITY
     private var started = false
@@ -91,8 +100,8 @@ class ItemEditorViewModel @Inject constructor(
         runCatching {
             val st = settings.current()
             val original = withContext(Dispatchers.IO) { ImageOps.loadNormalized(app.contentResolver, Uri.parse(uri)) }
-            gains = withContext(Dispatchers.Default) { ImageOps.grayWorldGains(original) }
-            val corrected = withContext(Dispatchers.Default) { ImageOps.applyGains(original, gains) }
+            gains = Gains.IDENTITY
+            val corrected = original
             val ml = if (st.cutouts) Cutout.mlKit(corrected) else null
             val mask = ml ?: withContext(Dispatchers.Default) { Cutout.fallback(corrected, _s.value.tolerance) }
             val hints = if (st.categoryHints) CategoryHints.suggest(ImageOps.scaleToFit(corrected, 512)) else emptyList()
@@ -109,7 +118,7 @@ class ItemEditorViewModel @Inject constructor(
         val cut = withContext(Dispatchers.Default) { val f = mask.feathered(1); ImageOps.withMask(corrected, f.a, f.w, f.h) }
         val colors = withContext(Dispatchers.Default) { ImageOps.extractColors(cut) }
         val patterned = withContext(Dispatchers.Default) { ImageOps.looksPatterned(cut) }
-        val draft = s.draft?.let { d -> ItemFactory.refreshDerived(d.copy(colors = colors, name = if (d.name == ItemFactory.autoName(d.subcategory, d.colors)) ItemFactory.autoName(d.subcategory, colors) else d.name)) }
+        val draft = s.draft?.takeIf { !s.colorsEdited }?.let { d -> ColorEdits.apply(d, colors) }
         _s.update { it.copy(cutout = cut, processing = false, patternHint = patterned, detected = colors, draft = draft ?: it.draft) }
     }
 
@@ -117,7 +126,8 @@ class ItemEditorViewModel @Inject constructor(
         if (mode == WbMode.TAP) { _s.update { it.copy(tool = EditorTool.WHITE_BALANCE_TAP, wbMode = mode) }; return }
         viewModelScope.launch {
             val orig = _s.value.original ?: return@launch
-            gains = if (mode == WbMode.AUTO) ImageOps.grayWorldGains(orig) else Gains.IDENTITY
+            // Auto assumes the backdrop is neutral, so it averages the background, never the garment.
+            gains = if (mode == WbMode.AUTO) ImageOps.grayWorldGains(orig, _s.value.mask) else Gains.IDENTITY
             val corrected = withContext(Dispatchers.Default) { ImageOps.applyGains(orig, gains) }
             _s.update { it.copy(wbMode = mode, corrected = corrected, processing = true) }
             rebuildCutout()
@@ -154,9 +164,8 @@ class ItemEditorViewModel @Inject constructor(
                 val lab = ImageOps.pick(c, x, y)
                 val hex = ColorScience.labToHex(lab)
                 val d = s.draft ?: return
-                val extra = KMeans.itemColor(hex, 0.1, ColorRole.ACCENT)
-                val colors = (d.colors + extra).take(4)
-                _s.update { it.copy(draft = ItemFactory.refreshDerived(d.copy(colors = colors)), tool = EditorTool.NONE) }
+                val next = ColorEdits.add(d, hex, share = 0.1) ?: d
+                _s.update { it.copy(draft = next, tool = EditorTool.NONE, colorsEdited = true) }
             }
             else -> Unit
         }
@@ -180,13 +189,34 @@ class ItemEditorViewModel @Inject constructor(
         val colors = s.draft?.colors?.takeIf { it.isNotEmpty() } ?: s.detected.ifEmpty { listOf(KMeans.itemColor("#808080")) }
         val base = ItemFactory.create(s.draft?.id ?: UUID.randomUUID().toString(), sub, colors, s.draft?.pattern ?: Pattern(), createdEpochDay = time.today())
         val keep = s.draft
-        _s.update { it.copy(draft = if (keep != null && s.existing) base.copy(id = keep.id, photos = keep.photos, meta = keep.meta, flags = keep.flags, laundry = keep.laundry.copy(wearsBeforeWash = base.laundry.wearsBeforeWash), status = keep.status, createdEpochDay = keep.createdEpochDay) else base) }
+        _s.update { it.copy(draft = if (keep != null && s.existing) ItemFactory.recategorize(keep, sub) else base) }
     }
 
     fun update(transform: (Item) -> Item) = _s.update { s -> s.copy(draft = s.draft?.let(transform)) }
 
     fun setPattern(type: PatternType) = update { d ->
-        ItemFactory.refreshDerived(d.copy(pattern = if (type == PatternType.SOLID) Pattern() else d.pattern.copy(type = type, scale = if (d.pattern.scale == PatternScale.NONE) PatternScale.SMALL else d.pattern.scale, loudness = maxOf(1, d.pattern.loudness))))
+        ItemFactory.refreshDerived(d.copy(pattern = if (type == PatternType.SOLID) Pattern() else d.pattern.copy(type = type, scale = if (d.pattern.scale == PatternScale.NONE) PatternScale.SMALL else d.pattern.scale, loudness = maxOf(1, d.pattern.loudness))), d)
+    }
+
+    private fun editColors(edit: (Item) -> Item?): Boolean {
+        val d = _s.value.draft ?: return false
+        val next = edit(d) ?: return false
+        _s.update { it.copy(draft = next, colorsEdited = true) }
+        return true
+    }
+
+    /** Exact color by code ("#fff", "#1F2A44"); the rules use this exact value. False if invalid. */
+    fun setColorHex(index: Int, input: String): Boolean = editColors { ColorEdits.setHex(it, index, input) }
+    fun setColorShare(index: Int, share: Double) = editColors { ColorEdits.setShare(it, index, share) }
+    fun addColor(input: String): Boolean = editColors { ColorEdits.add(it, input) }
+    fun removeColor(index: Int) = editColors { ColorEdits.remove(it, index) }
+
+    /** "Same as…": copy every tag from another piece, keeping this piece's colors and photo. */
+    fun sameAs(source: Item) = _s.update { s ->
+        val target = s.draft ?: ItemFactory.create(
+            UUID.randomUUID().toString(), source.subcategory, s.detected.ifEmpty { source.colors }, createdEpochDay = time.today(),
+        )
+        s.copy(draft = ColorEdits.sameAs(target, source))
     }
 
     fun save(next: Boolean = true) = viewModelScope.launch {
@@ -206,7 +236,8 @@ class ItemEditorViewModel @Inject constructor(
 
     fun delete() = viewModelScope.launch {
         val d = _s.value.draft ?: return@launch
-        wardrobe.delete(d.id); images.deleteItem(d.id)
+        // Also removes its photos and the saved outfits and plans that use it.
+        cleaner.delete(setOf(d.id))
         _s.update { it.copy(saved = true) }
     }
 

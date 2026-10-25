@@ -25,8 +25,13 @@ class FeedbackRepository(private val db: EnsembleDatabase) {
 
     val eventCount: Flow<Int> = db.feedback().observeCount()
 
-    suspend fun currentStats(): PreferenceStats =
+    /** Last stats written or read; every write goes through [save], so it never goes stale. */
+    @Volatile private var cached: PreferenceStats? = null
+
+    /** Decoding the stats JSON is the slowest part of building an engine context, so it's done once. */
+    suspend fun currentStats(): PreferenceStats = cached ?: (
         db.feedback().stats()?.let { DataJson.decodeFromString(PreferenceStats.serializer(), it.json) } ?: PreferenceStats.EMPTY
+    ).also { cached = it }
 
     suspend fun record(event: FeedbackEvent, cfg: LearningConfig) = lock.withLock {
         db.feedback().insert(entity(event))
@@ -62,8 +67,13 @@ class FeedbackRepository(private val db: EnsembleDatabase) {
 
     suspend fun deleteEvent(id: String) = db.feedback().delete(id)
 
-    private suspend fun save(s: PreferenceStats) =
+    private suspend fun save(s: PreferenceStats) {
+        cached = s
         db.feedback().saveStats(PreferenceStatsEntity(1, s.stats.size, DataJson.encodeToString(PreferenceStats.serializer(), s)))
+    }
+
+    /** For writers that bypass [save] (import, delete all): read the table again next time. */
+    fun invalidate() { cached = null }
 
     private fun entity(e: FeedbackEvent) =
         FeedbackEventEntity(e.id, e.epochMillis, e.resetEpoch, DataJson.encodeToString(FeedbackEvent.serializer(), e))

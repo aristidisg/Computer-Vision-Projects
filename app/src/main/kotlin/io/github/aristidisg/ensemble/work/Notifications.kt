@@ -43,7 +43,7 @@ object Notifications {
     fun morning(context: Context, title: String, body: String, wearPayload: String?) {
         if (!canPost(context)) return
         val b = NotificationCompat.Builder(context, CHANNEL_DAILY)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -64,7 +64,7 @@ object Notifications {
     fun checkIn(context: Context, logId: String) {
         if (!canPost(context)) return
         val n = NotificationCompat.Builder(context, CHANNEL_CHECKIN)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(context.getString(R.string.checkin_title))
             .setContentText(context.getString(R.string.notif_checkin_body))
             .setContentIntent(openApp(context, MainActivity.OPEN_CHECKIN, logId, request = 3))

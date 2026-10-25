@@ -25,7 +25,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        launch.value = parse(intent)
+        // Only a fresh start handles the launch intent; after rotation it was already handled.
+        if (savedInstanceState == null) launch.value = parse(intent)
         setContent {
             EnsembleTheme {
                 EnsembleNav(launch.value) { launch.value = null }
@@ -35,6 +36,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         launch.value = parse(intent)
     }
 

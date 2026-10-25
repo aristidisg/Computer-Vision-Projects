@@ -35,6 +35,15 @@ object HardConstraints {
         return null
     }
 
+    /**
+     * Why a piece can't be suggested in this context at all (for "Why isn't this suggested?"),
+     * or null when at least one of its slots is open to it.
+     */
+    fun whyNotSuggested(item: Item, ctx: EngineContext): Violation? {
+        val verdicts = item.slots.map { itemViolation(item, it, ctx) }
+        return if (verdicts.any { it == null }) null else verdicts.firstOrNull()
+    }
+
     private fun weatherViolation(item: Item, slot: Slot, ctx: EngineContext): Violation? {
         val w = ctx.weather
         val d = TaxonomyTable.of(item.subcategory)
@@ -96,7 +105,8 @@ object HardConstraints {
         if (look.top != null && !look.top.layering.presentableAlone && mid == null && outer == null) return Violation.LAYERING
         // Scenario requirements
         if (sc.requiredSubcategories.isNotEmpty() && look.items.none { it.subcategory in sc.requiredSubcategories }) return Violation.SCENARIO
-        if (sc.requiredSlots.any { it !in look.bySlot }) return Violation.SCENARIO
+        // A required jacket is waived when outerwear is switched off.
+        if (sc.requiredSlots.any { it !in look.bySlot && !(it == Slot.OUTER && ctx.settings.outerwearOff) && !(it == Slot.MID && ctx.settings.midLayersOff) }) return Violation.SCENARIO
         // Cooldowns and blocks
         val sig = look.signature
         if (sig in ctx.neverAgain || sig in ctx.prefs.blocked) return Violation.NEVER_AGAIN

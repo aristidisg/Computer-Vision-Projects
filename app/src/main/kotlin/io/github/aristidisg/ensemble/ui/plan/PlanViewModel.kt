@@ -22,6 +22,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.math.abs
@@ -54,7 +57,11 @@ class PlanViewModel @Inject constructor(
     init {
         viewModelScope.launch { plans.trips.collect { t -> _s.update { it.copy(trips = t) } } }
         viewModelScope.launch { wardrobe.items.collect { i -> _s.update { it.copy(items = i.associateBy { x -> x.id }, laundryCount = i.count { x -> x.status == ItemStatus.LAUNDRY }) } } }
-        refresh(checkReplan = true)
+        refresh()
+        // Plans saved elsewhere (outfit detail → Plan for…) show up without leaving the tab.
+        viewModelScope.launch {
+            plans.plans.drop(1).collectLatest { delay(300); refresh() }
+        }
     }
 
     fun refresh(checkReplan: Boolean = false): Job = viewModelScope.launch {
@@ -76,6 +83,15 @@ class PlanViewModel @Inject constructor(
             }
             if (moved.isNotEmpty()) { autoPlan(); _s.update { it.copy(replanned = true) } }
         }
+    }
+
+    private var replanChecked = false
+
+    /** Forecast-change replanning, once per visit to the Plan tab (not from Laundry, which shares this VM type). */
+    fun checkReplan() {
+        if (replanChecked) return
+        replanChecked = true
+        refresh(checkReplan = true)
     }
 
     fun setScenario(day: Long, scenarioId: String) = viewModelScope.launch {

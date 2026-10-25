@@ -36,6 +36,7 @@ import io.github.aristidisg.ensemble.R
 import io.github.aristidisg.ensemble.ui.onboarding.OnboardingScreen
 import io.github.aristidisg.ensemble.ui.outfits.ComposerScreen
 import io.github.aristidisg.ensemble.ui.outfits.LookEditorScreen
+import io.github.aristidisg.ensemble.ui.outfits.LookbookScreen
 import io.github.aristidisg.ensemble.ui.outfits.LookMatchScreen
 import io.github.aristidisg.ensemble.ui.outfits.OutfitDetailScreen
 import io.github.aristidisg.ensemble.ui.outfits.OutfitsScreen
@@ -46,10 +47,12 @@ import io.github.aristidisg.ensemble.ui.today.CheckInScreen
 import io.github.aristidisg.ensemble.ui.today.TodayScreen
 import io.github.aristidisg.ensemble.ui.wardrobe.ItemDetailScreen
 import io.github.aristidisg.ensemble.ui.wardrobe.ItemEditorScreen
+import io.github.aristidisg.ensemble.ui.wardrobe.LabelCheckScreen
 import io.github.aristidisg.ensemble.ui.wardrobe.WardrobeScreen
 import io.github.aristidisg.ensemble.ui.you.AboutScreen
 import io.github.aristidisg.ensemble.ui.you.CustomRuleScreen
 import io.github.aristidisg.ensemble.ui.you.DataScreen
+import io.github.aristidisg.ensemble.ui.you.ShoppingListScreen
 import io.github.aristidisg.ensemble.ui.you.InsightsScreen
 import io.github.aristidisg.ensemble.ui.you.LocationScreen
 import io.github.aristidisg.ensemble.ui.you.NotificationsScreen
@@ -122,6 +125,7 @@ fun EnsembleNav(launch: LaunchRequest?, onLaunchHandled: () -> Unit) {
             composable<LookMatchRoute> { LookMatchScreen(it.toRoute<LookMatchRoute>().id, nav) }
             composable<TripRoute> { TripScreen(it.toRoute<TripRoute>().id, nav) }
             composable<LaundryRoute> { LaundryScreen(nav) }
+            composable<LabelCheckRoute> { LabelCheckScreen(nav) }
             composable<CheckInRoute> { CheckInScreen(it.toRoute<CheckInRoute>().logId, nav) }
             composable<StyleProfileRoute> { StyleProfileScreen(nav) }
             composable<TasteRoute> { TasteScreen(nav) }
@@ -131,6 +135,8 @@ fun EnsembleNav(launch: LaunchRequest?, onLaunchHandled: () -> Unit) {
             composable<ScenarioEditorRoute> { ScenarioEditorScreen(it.toRoute<ScenarioEditorRoute>().id, nav) }
             composable<PersonalColorRoute> { PersonalColorScreen(nav) }
             composable<InsightsRoute> { InsightsScreen(nav) }
+            composable<LookbookRoute> { LookbookScreen(nav) }
+            composable<ShoppingListRoute> { ShoppingListScreen(nav) }
             composable<RotationRoute> { RotationScreen(nav) }
             composable<LocationRoute> { LocationScreen(nav) }
             composable<NotificationsRoute> { NotificationsScreen(nav) }

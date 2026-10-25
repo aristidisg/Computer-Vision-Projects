@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.you
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,7 +89,7 @@ fun PersonalColorScreen(nav: NavHostController, vm: SettingsViewModel = hiltView
             SectionTitle(stringResource(R.string.pc_season))
             ChoiceChips(ColorSeason.entries, setOfNotNull(pc.season), { it.label }, { v -> set { it.copy(season = v) } })
             pc.season?.let { season ->
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                     PersonalColorData.of(season).swatches.forEach { Box(Modifier.size(24.dp).clip(CircleShape).background(hexColor(it))) }
                 }
             }

@@ -43,12 +43,14 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.aristidisg.ensemble.R
+import io.github.aristidisg.ensemble.data.repo.FeedbackRepository
 import io.github.aristidisg.ensemble.data.repo.LookRepository
 import io.github.aristidisg.ensemble.data.repo.OutfitRepository
 import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
+import io.github.aristidisg.ensemble.engine.learning.LearningConfig
 import io.github.aristidisg.ensemble.engine.planner.Routines
 import io.github.aristidisg.ensemble.engine.planner.WearAgain
 import io.github.aristidisg.ensemble.model.InspirationLook
@@ -58,6 +60,7 @@ import io.github.aristidisg.ensemble.model.OutfitSource
 import io.github.aristidisg.ensemble.model.WearLog
 import io.github.aristidisg.ensemble.ui.common.Collage
 import io.github.aristidisg.ensemble.ui.common.EmptyState
+import io.github.aristidisg.ensemble.ui.common.SwitchRow
 import io.github.aristidisg.ensemble.ui.nav.ComposerRoute
 import io.github.aristidisg.ensemble.ui.nav.LookEditorRoute
 import io.github.aristidisg.ensemble.ui.nav.LookMatchRoute
@@ -69,6 +72,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -85,19 +89,29 @@ data class OutfitsState(
     val cooldown: Int = 14,
     /** Liked outfits worn before whose cooldown is over ("Wear it again"). */
     val ready: List<WearAgain> = emptyList(),
+    /** Saved outfits shape suggestions (boost and learning). */
+    val influence: Boolean = true,
 )
 
 @HiltViewModel
 class OutfitsViewModel @Inject constructor(
-    outfits: OutfitRepository, looks: LookRepository, wear: WearRepository, wardrobe: WardrobeRepository, settings: SettingsRepository, time: TimeSource,
+    outfits: OutfitRepository, looks: LookRepository, wear: WearRepository, wardrobe: WardrobeRepository,
+    private val settings: SettingsRepository, time: TimeSource, private val feedback: FeedbackRepository,
 ) : ViewModel() {
+    /** On/off for the collection's influence; past saves are replayed so they stop (or start) counting. */
+    fun setInfluence(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(savedOutfitsInfluence = on) }
+        val s = settings.current()
+        feedback.rebuild(s.learningEpoch, LearningConfig.of(s))
+    }
+
     val state = combine(outfits.outfits, looks.looks, wear.logs, wardrobe.items, settings.settings) { o, l, w, i, s ->
         val visible = o.filter { !it.neverShow }
         val byId = i.associateBy { it.id }
         val today = time.today()
         OutfitsState(
             visible.filter { it.source != OutfitSource.COMPOSED && it.liked }, visible.filter { it.source == OutfitSource.COMPOSED },
-            l, w, byId, today, s.outfitCooldownDays, Routines.wearAgain(visible, w, byId, today, s.outfitCooldownDays),
+            l, w, byId, today, s.outfitCooldownDays, Routines.wearAgain(visible, w, byId, today, s.outfitCooldownDays), s.savedOutfitsInfluence,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), OutfitsState())
 }
@@ -116,7 +130,11 @@ fun OutfitsScreen(nav: NavHostController, vm: OutfitsViewModel = hiltViewModel()
                 }
             }
             when (tab) {
-                0 -> { WearAgainRow(s, nav); OutfitGrid(s.saved, s, nav, stringResource(R.string.nothing_saved)) }
+                0 -> {
+                    SwitchRow(stringResource(R.string.saved_influence), s.influence, vm::setInfluence, stringResource(R.string.saved_influence_body))
+                    WearAgainRow(s, nav)
+                    OutfitGrid(s.saved, s, nav, stringResource(R.string.nothing_saved))
+                }
                 1 -> OutfitGrid(s.composed, s, nav, stringResource(R.string.composer_hint))
                 2 -> Looks(s.looks, nav)
                 else -> History(s.history, s, nav)

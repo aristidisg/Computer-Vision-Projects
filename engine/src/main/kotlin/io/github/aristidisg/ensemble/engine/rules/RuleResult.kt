@@ -99,6 +99,7 @@ enum class Explain(val template: String) {
     LEARNED_LIKE("You've liked {a} with {b} {n} times."),
     LEARNED_DISLIKE("You've passed on similar looks before."),
     CUSTOM_RULE("Your rule: {name}."),
+    LIKE_SAVED("Close to outfits you saved."),
     NEW_IDEA("New idea: something you haven't rated yet."),
 }
 

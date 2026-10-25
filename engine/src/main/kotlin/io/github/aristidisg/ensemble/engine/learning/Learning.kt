@@ -3,6 +3,7 @@ package io.github.aristidisg.ensemble.engine.learning
 import io.github.aristidisg.ensemble.model.FeedbackEvent
 import io.github.aristidisg.ensemble.model.FeedbackType
 import io.github.aristidisg.ensemble.model.PreferenceStat
+import io.github.aristidisg.ensemble.model.Settings
 import io.github.aristidisg.ensemble.model.Thermal
 import io.github.aristidisg.ensemble.model.WhyNot
 import kotlinx.serialization.Serializable
@@ -12,7 +13,13 @@ import kotlin.math.pow
 data class LearningConfig(
     val halfLifeDays: Double = 120.0,
     val rejectedCooldownDays: Int = 21,
-)
+    /** Saving or composing an outfit teaches taste; off with "saved outfits shape suggestions". */
+    val learnFromSaved: Boolean = true,
+) {
+    companion object {
+        fun of(s: Settings) = LearningConfig(s.halfLifeDays, s.rejectedCooldownDays, s.savedOutfitsInfluence)
+    }
+}
 
 /** Learned state. Every field can be rebuilt by replaying the event log. */
 @Serializable
@@ -75,8 +82,8 @@ object Learning {
         fun all(w: Double) = f.associateWith { w }
         when (event.type) {
             FeedbackType.SWIPE_YES -> addAll(s, event, all(1.0), cfg)
-            FeedbackType.SAVE -> addAll(s, event, all(2.0), cfg)
-            FeedbackType.COMPOSED -> addAll(s, event, all(3.0), cfg)
+            FeedbackType.SAVE -> if (cfg.learnFromSaved) addAll(s, event, all(2.0), cfg) else learned = false
+            FeedbackType.COMPOSED -> if (cfg.learnFromSaved) addAll(s, event, all(3.0), cfg) else learned = false
             FeedbackType.SWIPE_UP_WEAR -> addAll(s, event, all(2.5), cfg)
             FeedbackType.INSPIRATION_ADDED -> addAll(s, event, all(2.0), cfg)
             FeedbackType.SWIPE_NO -> {

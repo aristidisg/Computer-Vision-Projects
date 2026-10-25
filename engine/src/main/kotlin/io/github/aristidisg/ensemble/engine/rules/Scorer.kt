@@ -106,13 +106,14 @@ object Scorer {
             total += 0.1 * w
             results += res("CUSTOM", RuleGroup.FORMALITY_STYLE, if (w > 0) 1.0 else 0.0, 0.0, Explain.CUSTOM_RULE, "name" to rule.name)
         }
+        CollectionRules.influence(look, ctx)?.let { (bonus, line) -> total += bonus; results += line }
         val comfort = look.items.mapNotNull { ctx.prefs.comfortPenalty[it.id] }.sum()
         total = calibrate(total - comfort)
 
         fun impact(r: RuleResult) = weights[r.group]?.let { it * r.weight } ?: (r.weight * 0.1)
         val explained = results.filter { it.key != null && it.id != "SH7" }
         val why = explained.filter { it.score > 0.5 && it.key !in negativeKeys }
-            .sortedWith(compareByDescending<RuleResult> { impact(it) * (it.score - 0.5) + if (it.id == "CUSTOM") 1.0 else 0.0 }.thenBy { it.id }).take(3)
+            .sortedWith(compareByDescending<RuleResult> { impact(it) * (it.score - 0.5) + when (it.id) { "CUSTOM" -> 1.0; "SAVED" -> 0.5; else -> 0.0 } }.thenBy { it.id }).take(3)
         val trade = explained.filter { it.score < 0.5 || it.key in negativeKeys && it.score < 0.8 }
             .sortedWith(compareByDescending<RuleResult> { impact(it) * (0.5 - it.score + 0.5) }.thenBy { it.id }).take(2)
         val weatherLine = results.firstOrNull { it.key == Explain.WEATHER_LAYER } ?: results.firstOrNull { it.key == Explain.RAIN }

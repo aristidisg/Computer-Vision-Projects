@@ -141,7 +141,7 @@ class Backup(
         }
         staging.deleteRecursively()
         val s = settings.current()
-        feedback.rebuild(s.learningEpoch, LearningConfig(s.halfLifeDays, s.rejectedCooldownDays))
+        feedback.rebuild(s.learningEpoch, LearningConfig.of(s))
     }
 
     /** "Delete all data" after a typed confirmation. */

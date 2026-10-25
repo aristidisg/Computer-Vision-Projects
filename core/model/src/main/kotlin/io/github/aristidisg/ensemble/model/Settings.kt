@@ -134,6 +134,11 @@ data class Settings(
     val autoBackupLastMillis: Long = 0,
     /** Manual weather per day ("set temperature by hand"), keyed by epoch day. */
     val manualWeather: Map<String, WindowWeather> = emptyMap(),
+    /**
+     * Saved and composed outfits shape suggestions: similar outfits get a boost and saving
+     * teaches taste. Off: neither, and past saves stop counting.
+     */
+    val savedOutfitsInfluence: Boolean = true,
     /** Pieces to buy, usually added from the gap finder. */
     val shoppingList: List<ShoppingEntry> = emptyList(),
 ) {

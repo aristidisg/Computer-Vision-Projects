@@ -83,7 +83,7 @@ class Studio @Inject constructor(
             val s = settingsOverride ?: settingsRepo.current()
             val items = wardrobe.all()
             val stats = feedback.currentStats()
-            val cfg = LearningConfig(s.halfLifeDays, s.rejectedCooldownDays)
+            val cfg = LearningConfig.of(s)
             val prefs = PreferenceSnapshot.of(stats, scenario.id, EngineContext.seasonOf(epochDay), epochDay, cfg, s.trustMyTaste)
             val saved = outfits.all()
             val soon = plans.allPlans().filter { it.epochDay in (epochDay + 1)..(epochDay + 3) }.flatMap { p -> p.pieces.map { it.itemId } }.toSet()
@@ -104,6 +104,7 @@ class Studio @Inject constructor(
                 recentDeckCount = decks.size,
                 outfitCooldowns = saved.mapNotNull { o -> o.cooldownDays?.let { o.signature to it } }.toMap(),
                 neverAgain = saved.filter { it.neverShow }.map { it.signature }.toSet(),
+                collection = saved.filter { it.liked && !it.neverShow }.map { it.pieces },
             )
         }
 

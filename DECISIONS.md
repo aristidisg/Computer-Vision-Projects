@@ -102,6 +102,26 @@ Choices made where the spec left room, or where it was changed. Newest first.
 - **Clashes are data.** `ColorTables.clashes` lists family pairs that read badly even when hue
   harmony likes them. C7 scores them 0.15 with weight 4. The list is deliberately short; anything
   else is left to your swipes and custom rules.
+- **Collection influence is a bonus, not a rule group.**
+  - Similarity to the closest saved or composed outfit is 0.6 × shared colour-family pairs +
+    0.4 × shared core pieces (both Jaccard).
+  - It adds up to 0.08 raw (about 0.2 Match %) after the groups are combined, like custom soft
+    rules, so outfits that aren't similar are not dragged toward the middle.
+  - The exact saved outfit gets nothing, so the deck finds new outfits in the same spirit
+    instead of repeating saves (cooldowns and "Wear it again" cover repeats).
+- **The influence switch also stops saves and compositions from teaching taste**
+  (`LearningConfig.learnFromSaved`). Flipping it replays the event log, so it applies to past
+  saves too. Swipes, wears and check-ins keep teaching.
+- **Label check suggests, never edits.**
+  - It covers only tops, mid layers and outerwear, the groups that get mixed up.
+  - Signals in order of strength: a typed name (a keyword table), materials, the ML Kit photo
+    hint (allowed ML, behind the hints toggle), and slots edited by hand. Each piece gets at most
+    one suggestion.
+  - A photo saying "jacket" is ignored for pieces that already work as outerwear (overshirt,
+    gilet, fleece).
+  - A fix re-applies the new subcategory's defaults through `ItemFactory.recategorize`, which
+    keeps id, colours, pattern, photos, notes, status, flags, wear count and a typed name. The
+    editor's category change now uses the same function.
 - **"Wear it again"** lists liked outfits:
   - worn at least once;
   - off cooldown (per outfit, or the global setting);

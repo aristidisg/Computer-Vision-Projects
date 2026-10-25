@@ -1,9 +1,12 @@
 package io.github.aristidisg.ensemble.engine
 
 import io.github.aristidisg.ensemble.engine.learning.PreferenceSnapshot
+import io.github.aristidisg.ensemble.engine.rules.CollectionProfile
+import io.github.aristidisg.ensemble.engine.rules.CollectionRules
 import io.github.aristidisg.ensemble.engine.tables.WarmthTable
 import io.github.aristidisg.ensemble.model.CustomRule
 import io.github.aristidisg.ensemble.model.Item
+import io.github.aristidisg.ensemble.model.OutfitPiece
 import io.github.aristidisg.ensemble.model.Scenario
 import io.github.aristidisg.ensemble.model.Season
 import io.github.aristidisg.ensemble.model.Settings
@@ -66,7 +69,12 @@ data class EngineContext(
     val outfitCooldowns: Map<String, Int> = emptyMap(),
     /** Signatures marked "never show again". */
     val neverAgain: Set<String> = emptySet(),
+    /** Saved and liked outfits ("my collection"), used when savedOutfitsInfluence is on. */
+    val collection: List<List<OutfitPiece>> = emptyList(),
 ) {
+    /** Precomputed pieces and color-family pairs of the collection. */
+    val collectionProfiles: List<CollectionProfile> by lazy { CollectionRules.profiles(this) }
+
     val date: LocalDate get() = LocalDate.ofEpochDay(epochDay)
     val weekday: Int get() = date.dayOfWeek.value
     val season: Season get() = seasonOf(epochDay)

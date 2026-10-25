@@ -39,7 +39,7 @@ class FeedbackRecorder @Inject constructor(
     private val settings: SettingsRepository,
     private val time: TimeSource,
 ) {
-    private suspend fun cfg(): LearningConfig = settings.current().let { LearningConfig(it.halfLifeDays, it.rejectedCooldownDays) }
+    private suspend fun cfg(): LearningConfig = settings.current().let { LearningConfig.of(it) }
 
     private fun snapshot(ctx: EngineContext) = ContextSnapshot(
         ctx.scenario.id, ctx.season, WarmthTable.label(ctx.weather.feelsMid), ctx.weekday, ctx.weather.feelsMin, ctx.weather.feelsMax,
@@ -137,6 +137,6 @@ class FeedbackRecorder @Inject constructor(
                 wardrobe.upsert(item.copy(laundry = l, status = if (p.itemId in r.laundryItems) ItemStatus.AVAILABLE else item.status), time.nowMillis())
             }
         }
-        feedback.rebuild(s.learningEpoch, LearningConfig(s.halfLifeDays, s.rejectedCooldownDays))
+        feedback.rebuild(s.learningEpoch, LearningConfig.of(s))
     }
 }

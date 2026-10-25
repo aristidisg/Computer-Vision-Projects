@@ -163,5 +163,5 @@ private fun CategoryPicker(s: EditorState, onPick: (Subcategory) -> Unit) {
     SectionTitle(stringResource(if (s.draft == null) R.string.choose_category else R.string.category))
     ChoiceChips(CategoryGroup.entries, setOfNotNull(group ?: s.draft?.subcategory?.group), { it.label }, { group = it }, scroll = true)
     val g = group ?: s.draft?.subcategory?.group
-    if (g != null) ChoiceChips(Subcategory.entries.filter { it.group == g }, setOfNotNull(s.draft?.subcategory), { it.label }, onPick)
+    if (g != null) SubcategoryChips(g, s.draft?.subcategory, onPick)
 }

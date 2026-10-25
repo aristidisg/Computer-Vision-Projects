@@ -85,7 +85,7 @@ class TasteViewModel @Inject constructor(
         }
     }
 
-    private suspend fun cfg() = settings.current().let { LearningConfig(it.halfLifeDays, it.rejectedCooldownDays) }
+    private suspend fun cfg() = settings.current().let { LearningConfig.of(it) }
 
     fun forget(key: String) = viewModelScope.launch { feedback.forget(key) }
     fun rebuild() = viewModelScope.launch { feedback.rebuild(settings.current().learningEpoch, cfg()) }

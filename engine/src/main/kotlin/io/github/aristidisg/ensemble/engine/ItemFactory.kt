@@ -55,6 +55,25 @@ object ItemFactory {
     /** Re-applies the defaults that depend on colors/pattern/materials after an edit. */
     fun refreshDerived(item: Item): Item = item.copy(formality = formality(item), seasons = seasons(item))
 
+    /**
+     * Moves a piece to another subcategory: its defaults (slots, warmth, materials, formality,
+     * layering...) are re-applied while its identity, colors, pattern, photos, notes, status,
+     * flags and wear count stay. A name the user typed is kept.
+     */
+    fun recategorize(item: Item, sub: Subcategory): Item {
+        val base = create(item.id, sub, item.colors, item.pattern, createdEpochDay = item.createdEpochDay)
+        val customName = item.name != autoName(item.subcategory, item.colors)
+        return base.copy(
+            name = if (customName) item.name else base.name,
+            photos = item.photos, meta = item.meta, flags = item.flags, status = item.status,
+            laundry = base.laundry.copy(wearsSinceWash = item.laundry.wearsSinceWash),
+            silhouette = item.silhouette, updatedAtMillis = item.updatedAtMillis,
+        )
+    }
+
+    /** Slots back to the subcategory's defaults. */
+    fun resetSlots(item: Item): Item = item.copy(slots = TaxonomyTable.of(item.subcategory).slots)
+
     fun autoName(sub: Subcategory, colors: List<ItemColor>): String {
         val color = colors.maxByOrNull { it.share }?.family?.label
         val noun = sub.label.replaceFirstChar { it.lowercase() }

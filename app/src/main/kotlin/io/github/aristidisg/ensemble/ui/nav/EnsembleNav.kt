@@ -46,6 +46,7 @@ import io.github.aristidisg.ensemble.ui.today.CheckInScreen
 import io.github.aristidisg.ensemble.ui.today.TodayScreen
 import io.github.aristidisg.ensemble.ui.wardrobe.ItemDetailScreen
 import io.github.aristidisg.ensemble.ui.wardrobe.ItemEditorScreen
+import io.github.aristidisg.ensemble.ui.wardrobe.LabelCheckScreen
 import io.github.aristidisg.ensemble.ui.wardrobe.WardrobeScreen
 import io.github.aristidisg.ensemble.ui.you.AboutScreen
 import io.github.aristidisg.ensemble.ui.you.CustomRuleScreen
@@ -123,6 +124,7 @@ fun EnsembleNav(launch: LaunchRequest?, onLaunchHandled: () -> Unit) {
             composable<LookMatchRoute> { LookMatchScreen(it.toRoute<LookMatchRoute>().id, nav) }
             composable<TripRoute> { TripScreen(it.toRoute<TripRoute>().id, nav) }
             composable<LaundryRoute> { LaundryScreen(nav) }
+            composable<LabelCheckRoute> { LabelCheckScreen(nav) }
             composable<CheckInRoute> { CheckInScreen(it.toRoute<CheckInRoute>().logId, nav) }
             composable<StyleProfileRoute> { StyleProfileScreen(nav) }
             composable<TasteRoute> { TasteScreen(nav) }

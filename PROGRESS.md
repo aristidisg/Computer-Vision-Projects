@@ -65,10 +65,24 @@ Actions is the build machine (see DECISIONS.md).
   - **Clash table.** Olive, forest or Kelly green with pink or dusty pink (rose), and bright
     green with red, are known clashes. C7 now weighs them heavily, even when the hue maths
     rates them as complementary.
+- [x] **Saved outfits shape suggestions, and a label check.**
+  - **"My collection" boost.** Outfits close to the ones you saved or composed (same colour
+    pairs, some of the same pieces) get up to +0.2 Match and the line "Close to outfits you
+    saved". The saved outfit itself gets no boost.
+  - **Off switch.** Outfits → Saved has a switch for this. Off removes the boost, stops saves and
+    compositions from teaching taste, and replays the log so past saves stop counting too.
+  - **Check labels** (Wardrobe → ⋮) flags tops, mid layers and outer layers that look misfiled:
+    - a typed name that says otherwise;
+    - materials that say otherwise (knit-only outerwear, leather mid layers);
+    - an ML Kit photo hint, when hints are on;
+    - layers changed by hand.
+    Each flag has a one-tap fix, a picker and "It's right". Every mid and outer layer is also
+    listed for a manual pass.
+  - **Category picker** now splits Tops from Mid layers and labels Outer layers.
 
 ## Tests
 
-- :engine — 96 tests (colour edits, seasonal swap, wear again, shopping list, clashes and rotation included): color conversions against reference values, artist-hue anchors,
+- :engine — 106 tests (colour edits, seasonal swap, wear again, shopping list, clashes, rotation, collection influence and label check included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,

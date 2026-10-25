@@ -187,7 +187,7 @@ class ItemEditorViewModel @Inject constructor(
         val colors = s.draft?.colors?.takeIf { it.isNotEmpty() } ?: s.detected.ifEmpty { listOf(KMeans.itemColor("#808080")) }
         val base = ItemFactory.create(s.draft?.id ?: UUID.randomUUID().toString(), sub, colors, s.draft?.pattern ?: Pattern(), createdEpochDay = time.today())
         val keep = s.draft
-        _s.update { it.copy(draft = if (keep != null && s.existing) base.copy(id = keep.id, photos = keep.photos, meta = keep.meta, flags = keep.flags, laundry = keep.laundry.copy(wearsBeforeWash = base.laundry.wearsBeforeWash), status = keep.status, createdEpochDay = keep.createdEpochDay) else base) }
+        _s.update { it.copy(draft = if (keep != null && s.existing) ItemFactory.recategorize(keep, sub) else base) }
     }
 
     fun update(transform: (Item) -> Item) = _s.update { s -> s.copy(draft = s.draft?.let(transform)) }

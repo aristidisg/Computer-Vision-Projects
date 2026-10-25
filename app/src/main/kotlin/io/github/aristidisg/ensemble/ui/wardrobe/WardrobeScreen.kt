@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -35,6 +36,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -68,6 +70,7 @@ import io.github.aristidisg.ensemble.ui.common.EmptyState
 import io.github.aristidisg.ensemble.ui.common.ItemArt
 import io.github.aristidisg.ensemble.ui.nav.ItemDetailRoute
 import io.github.aristidisg.ensemble.ui.nav.ItemEditorRoute
+import io.github.aristidisg.ensemble.ui.nav.LabelCheckRoute
 import io.github.aristidisg.ensemble.ui.theme.LocalEnsembleColors
 import java.io.File
 import java.util.UUID
@@ -97,7 +100,14 @@ fun WardrobeScreen(nav: NavHostController, vm: WardrobeViewModel = hiltViewModel
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.tab_wardrobe), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                TextButton(onClick = vm::previewSwap) { Text(stringResource(R.string.seasonal_swap), maxLines = 1) }
+                Box {
+                    var more by remember { mutableStateOf(false) }
+                    IconButton(onClick = { more = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.more_actions)) }
+                    DropdownMenu(more, { more = false }) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.seasonal_swap)) }, onClick = { more = false; vm.previewSwap() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.check_labels)) }, onClick = { more = false; nav.navigate(LabelCheckRoute) })
+                    }
+                }
             }
             OutlinedTextField(
                 s.filter.query, { vm.setFilter(s.filter.copy(query = it)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) },

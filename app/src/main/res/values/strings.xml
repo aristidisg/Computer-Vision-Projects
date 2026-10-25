@@ -428,4 +428,30 @@
     <!-- Wear it again -->
     <string name="wear_again">Wear it again</string>
     <string name="last_worn_days">Worn %1$d days ago</string>
+    <!-- Saved outfits influence -->
+    <string name="saved_influence">Saved outfits shape suggestions</string>
+    <string name="saved_influence_body">Outfits close to the ones you saved or composed get a boost, and saving teaches your taste. Turn off to ignore them.</string>
+    <string name="x_like_saved">Close to outfits you saved.</string>
+    <!-- Label check -->
+    <string name="check_labels">Check labels</string>
+    <string name="more_actions">More actions</string>
+    <string name="check_labels_body">Pieces that look filed in the wrong place: a jacket saved as a sweater, a cardigan saved as outerwear. Nothing changes until you tap a fix. Below, every mid layer and outer layer for a quick manual pass.</string>
+    <string name="checking_photos">Checking photos…</string>
+    <string name="likely_mislabeled">Likely mislabeled (%1$d)</string>
+    <string name="no_mislabels">Nothing looks wrong. Check the list below by eye too.</string>
+    <string name="all_layers">All mid and outer layers</string>
+    <string name="cat_tops">Tops (worn next to the skin)</string>
+    <string name="cat_mid_layers">Mid layers (worn over a top: sweaters, hoodies, overshirts)</string>
+    <string name="cat_outerwear">Outer layers (worn over everything: jackets, coats)</string>
+    <string name="cat_outerwear_short">outer layer</string>
+    <string name="cat_mid_short">mid layer</string>
+    <string name="issue_name">its name says otherwise</string>
+    <string name="issue_material">its materials say otherwise</string>
+    <string name="issue_photo">the photo looks like something else</string>
+    <string name="issue_slots">its layers were changed by hand</string>
+    <string name="make_it">Make it %1$s</string>
+    <string name="reset_slots">Reset layers</string>
+    <string name="choose">Choose…</string>
+    <string name="looks_right">It\'s right</string>
+    <string name="change">Change</string>
 </resources>

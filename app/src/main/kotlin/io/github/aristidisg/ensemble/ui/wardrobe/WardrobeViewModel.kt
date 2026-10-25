@@ -3,10 +3,13 @@ package io.github.aristidisg.ensemble.ui.wardrobe
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.graphics.BitmapFactory
+import io.github.aristidisg.ensemble.data.files.ImageStore
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
 import io.github.aristidisg.ensemble.domain.WardrobeCleaner
+import io.github.aristidisg.ensemble.engine.ColorEdits
 import io.github.aristidisg.ensemble.engine.EngineContext
 import io.github.aristidisg.ensemble.engine.color.ColorScience
 import io.github.aristidisg.ensemble.engine.planner.Routines
@@ -25,6 +28,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import io.github.aristidisg.ensemble.photo.ImageOps
 import javax.inject.Inject
 
 enum class WardrobeSort { RECENT, MOST_WORN, LEAST_WORN, FORMALITY, HUE }
@@ -54,6 +60,7 @@ class WardrobeViewModel @Inject constructor(
     wear: WearRepository,
     private val time: TimeSource,
     private val cleaner: WardrobeCleaner,
+    private val images: ImageStore,
 ) : ViewModel() {
     private val filter = MutableStateFlow(WardrobeFilter())
     private val selected = MutableStateFlow(emptySet<String>())
@@ -104,6 +111,29 @@ class WardrobeViewModel @Inject constructor(
     /** Deletes the selected pieces with their photos and the outfits and plans that use them. */
     fun bulkDelete() = viewModelScope.launch {
         cleaner.delete(selected.value)
+        clearSelection()
+    }
+
+    private val _busy = MutableStateFlow(false)
+    /** True while colors are being re-read from photos. */
+    val busy = _busy.asStateFlow()
+
+    /**
+     * Re-reads the colors of the selected pieces from their cutouts with the current color
+     * reader. Pieces without a photo are left as they are; typed names are kept.
+     */
+    fun bulkRereadColors() = viewModelScope.launch {
+        val ids = selected.value
+        _busy.value = true
+        withContext(Dispatchers.Default) {
+            wardrobe.all().filter { it.id in ids }.forEach { i ->
+                val file = images.resolve(i.photos.cutout) ?: return@forEach
+                val bmp = BitmapFactory.decodeFile(file.path) ?: return@forEach
+                val colors = ImageOps.extractColors(bmp)
+                if (colors.isNotEmpty()) wardrobe.upsert(ColorEdits.apply(i, colors), time.nowMillis())
+            }
+        }
+        _busy.value = false
         clearSelection()
     }
 

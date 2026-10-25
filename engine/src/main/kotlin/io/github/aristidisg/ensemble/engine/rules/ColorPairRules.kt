@@ -43,6 +43,8 @@ object ColorPairRules {
         return when {
             ColorTables.clashes.containsKey(setOf(worst.first, worst.second)) ->
                 res("C7", G, worst.third, CLASH_WEIGHT, Explain.UNUSUAL_PAIR, "a" to worst.first.label, "b" to worst.second.label.lowercase())
+            // Experiment: an unusual (not clashing) pair is the point, not a fault.
+            worst.third <= 0.5 && ctx.settings.experimentMode -> res("C7", G, maxOf(mean, 0.7), 1.0)
             worst.third <= 0.5 -> res("C7", G, mean, 1.0, Explain.UNUSUAL_PAIR, "a" to worst.first.label, "b" to worst.second.label.lowercase())
             best.third >= 0.9 -> res("C7", G, mean, 1.0, Explain.CLASSIC_PAIR, "a" to best.first.label, "b" to best.second.label.lowercase())
             else -> res("C7", G, mean)

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.OutlinedTextField
+import io.github.aristidisg.ensemble.model.CategoryGroup
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,6 +71,18 @@ fun ItemForm(d: Item, suggestPattern: Boolean, vm: ItemEditorViewModel) {
         if (d.pattern.isPatterned) {
             ChoiceChips(listOf(PatternScale.SMALL, PatternScale.LARGE), setOf(d.pattern.scale), { it.name.lowercase() }, { sc -> vm.update { it.copy(pattern = it.pattern.copy(scale = sc)) } })
             SliderRow(stringResource(R.string.loudness), d.pattern.loudness.toFloat(), 0f..3f, { v -> vm.update { it.copy(pattern = it.pattern.copy(loudness = v.roundToInt())) } }, { "${it.roundToInt()}" }, steps = 2)
+        }
+
+        // How the piece is worn decides where it can go in an outfit; shown for every top, mid
+        // layer and jacket so "this isn't a jacket" is one tap, not hidden in Advanced.
+        if (d.subcategory.group == CategoryGroup.TOPS || d.subcategory.group == CategoryGroup.OUTERWEAR) {
+            SectionTitle(stringResource(R.string.worn_as))
+            val layers = listOf(Slot.TOP to R.string.worn_as_top, Slot.MID to R.string.worn_as_mid, Slot.OUTER to R.string.worn_as_outer)
+            val names = layers.associate { (slot, res) -> slot to stringResource(res) }
+            ChoiceChips(layers.map { it.first }, d.slots.toSet(), { s -> names.getValue(s) }, { s ->
+                vm.update { it.copy(slots = it.slots.toggled(s).ifEmpty { it.slots }) }
+            })
+            Text(stringResource(R.string.worn_as_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         SectionTitle(stringResource(R.string.silhouette))

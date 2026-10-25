@@ -143,6 +143,11 @@ data class Settings(
     val colorNamesVersion: Int = 0,
     /** Pieces the user confirmed are labeled right ("It's right" in Check labels). */
     val labelsConfirmed: Set<String> = emptySet(),
+    /**
+     * Experiment: bolder colors, looser style rules, more new ideas and less "what you usually
+     * like". Known clashes and hard rules (weather, occasion, laundry) still apply.
+     */
+    val experimentMode: Boolean = false,
     /** Pieces to buy, usually added from the gap finder. */
     val shoppingList: List<ShoppingEntry> = emptyList(),
 ) {

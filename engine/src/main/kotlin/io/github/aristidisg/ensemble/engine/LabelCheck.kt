@@ -36,20 +36,29 @@ object LabelCheck {
         "varsity" to Subcategory.VARSITY_JACKET, "trench" to Subcategory.TRENCH_COAT, "peacoat" to Subcategory.PEACOAT,
         "pea coat" to Subcategory.PEACOAT, "overcoat" to Subcategory.WOOL_OVERCOAT, "parka" to Subcategory.PARKA,
         "puffer" to Subcategory.PUFFER_JACKET, "blazer" to Subcategory.UNSTRUCTURED_BLAZER,
+        // Greek, compared without accents ("Ζακέτα" matches "ζακετα").
+        "δερματινο" to Subcategory.LEATHER_JACKET, "παλτο" to Subcategory.WOOL_OVERCOAT, "καμπαρντινα" to Subcategory.TRENCH_COAT,
+        "αδιαβροχο" to Subcategory.RAIN_SHELL, "σακακι" to Subcategory.UNSTRUCTURED_BLAZER, "ζακετα" to Subcategory.CARDIGAN,
+        "πουλοβερ" to Subcategory.MERINO_CREWNECK, "φουτερ" to Subcategory.CREWNECK_SWEATSHIRT, "ζιλε" to Subcategory.GILET,
+        "γιλεκο" to Subcategory.SWEATER_VEST, "ζιβαγκο" to Subcategory.TURTLENECK,
     ).sortedByDescending { it.first.length }
 
     /** Words that only say "this is outerwear". */
-    val genericOuter: List<String> = listOf("jacket", "coat", "anorak", "windbreaker")
+    val genericOuter: List<String> = listOf("jacket", "coat", "anorak", "windbreaker", "μπουφαν")
 
     private val knitOnly = setOf(Material.KNIT, Material.MERINO, Material.CASHMERE, Material.JERSEY)
     private val shell = setOf(Material.LEATHER, Material.SUEDE, Material.NYLON_TECH)
     private val layers = setOf(CategoryGroup.TOPS, CategoryGroup.OUTERWEAR)
 
-    private fun has(name: String, word: String) = Regex("\\b${Regex.escape(word)}\\b").containsMatchIn(name)
+    /** Whole-word match that works for Greek too (\\b only knows ASCII letters on the JVM). */
+    private fun has(name: String, word: String) = Regex("(?<![\\p{L}\\p{N}])${Regex.escape(word)}(?![\\p{L}\\p{N}])").containsMatchIn(name)
+
+    /** Lowercase without accents, so "Ζακέτα" matches "ζακετα". */
+    fun plain(s: String): String = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
 
     /** What a typed name points to: an exact subcategory, or just the outerwear group. */
     fun hintFromName(name: String): Pair<CategoryGroup, Subcategory?>? {
-        val n = name.lowercase()
+        val n = plain(name)
         nameHints.firstOrNull { (word, _) -> has(n, word) }?.let { return it.second.group to it.second }
         return if (genericOuter.any { has(n, it) }) CategoryGroup.OUTERWEAR to null else null
     }
@@ -73,7 +82,9 @@ object LabelCheck {
         // Overshirts, gilets and fleeces already work as outerwear; a photo saying "jacket" is no news.
         val alreadyOuter = photo?.group == CategoryGroup.OUTERWEAR && Slot.OUTER in i.slots
         if (photo != null && photo.group in layers && photo.group != group && !alreadyOuter) return LabelSuggestion(i, LabelIssue.PHOTO, photo.group, photo)
-        if (i.slots.toSet() != TaxonomyTable.of(i.subcategory).slots.toSet()) return LabelSuggestion(i, LabelIssue.SLOTS, group, i.subcategory)
+        // Narrowing the layers ("my overshirt is never a jacket") is a choice, not a mistake;
+        // losing the subcategory's main layer (a coat set to mid layer only) probably is.
+        if (TaxonomyTable.of(i.subcategory).slots.first() !in i.slots) return LabelSuggestion(i, LabelIssue.SLOTS, group, i.subcategory)
         return null
     }
 

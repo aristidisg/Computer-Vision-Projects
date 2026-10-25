@@ -11,6 +11,7 @@ import io.github.aristidisg.ensemble.engine.rules.Placed
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.engine.rules.Scorer
 import io.github.aristidisg.ensemble.model.Item
+import io.github.aristidisg.ensemble.model.Outfit
 import io.github.aristidisg.ensemble.model.OutfitPiece
 import io.github.aristidisg.ensemble.model.Slot
 import kotlin.math.sqrt
@@ -35,16 +36,19 @@ object DeckBuilder {
         val seed = seed(ctx, req)
         val gen = Generator(ctx, cfg, seed)
         val coreLocked = req.locked.filter { it.slot.isCore }
-        val candidates = gen.candidates(wardrobe, coreLocked)
-        if (candidates.isEmpty()) return SuggestionDeck(emptyList(), 0)
+        val all = gen.candidates(wardrobe, coreLocked)
+        if (all.isEmpty()) return SuggestionDeck(emptyList(), 0)
+        val candidates = freshFirst(all, ctx, req.deckSize)
         val rng = SeededRandom(seed xor 0x5DEECE66DL)
         val byId = wardrobe.associateBy { it.id }
-        val nExplore = if (ctx.settings.explorationRate <= 0) 0 else (req.deckSize * ctx.settings.explorationRate).toInt()
+        val nExplore = if (ctx.explorationRate <= 0) 0 else (req.deckSize * ctx.explorationRate).toInt()
         // Turns need history: without past decks there is no "least shown" yet.
         val nTurn = if (req.deckSize >= 8 && coreLocked.isEmpty() && ctx.recentDeckCount > 0) TURN_CARDS else 0
         // Turn cards are picked first, so the caps they use count against the rest of the deck.
         val turns = turns(candidates, emptyList(), nTurn, ctx, req.deckSize)
-        val main = mmr(candidates, req.deckSize - nExplore - turns.size, ctx, byId, cfg.mmrLambda, rng, req.deckSize, turns)
+        // Experiment weighs variety more against score.
+        val lambda = if (ctx.settings.experimentMode) cfg.mmrLambda - 0.15 else cfg.mmrLambda
+        val main = mmr(candidates, req.deckSize - nExplore - turns.size, ctx, byId, lambda, rng, req.deckSize, turns)
         val explore = explore(candidates, main + turns, nExplore, ctx)
         fun acc(o: ScoredOutfit) = accessorize(o, ctx, wardrobe, req.locked, gen.pairs)
         // Accessorizing rescores a card, so the turn line is put back afterwards.
@@ -200,6 +204,20 @@ object DeckBuilder {
             out += pick.copy(newIdea = true)
         }
         return out
+    }
+
+    /** Signature of an outfit's core pieces (accessories don't make an outfit new). */
+    fun coreSignature(c: ScoredOutfit): String = Outfit.signatureOf(c.pieces.filter { it.slot.isCore }.map { it.itemId })
+
+    /**
+     * Outfits shown in recent decks are held back: only fresh ones are used while there are
+     * enough of them (twice the deck size, so diversity still has a choice); otherwise the
+     * shown ones fill in at the end.
+     */
+    fun freshFirst(cands: List<ScoredOutfit>, ctx: EngineContext, deckSize: Int): List<ScoredOutfit> {
+        if (ctx.shownOutfits.isEmpty()) return cands
+        val (fresh, shown) = cands.partition { coreSignature(it) !in ctx.shownOutfits }
+        return if (fresh.size >= deckSize * 2) fresh else fresh + shown.take(deckSize * 2 - fresh.size)
     }
 
     /** Cards per deck reserved for the least-shown pieces. */

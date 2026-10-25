@@ -76,6 +76,13 @@ class LabelCheckTest {
         assertEquals(Subcategory.BOMBER, bomber.suggested)
     }
 
+    @Test fun `greek names are understood, with or without accents`() {
+        assertEquals(Subcategory.CARDIGAN, LabelCheck.suggestion(item("denim-jacket").copy(name = "Μπλε Ζακέτα"))!!.suggested)
+        assertEquals(Subcategory.WOOL_OVERCOAT, LabelCheck.suggestion(item("merino-navy").copy(name = "μαύρο παλτο"))!!.suggested)
+        assertEquals(CategoryGroup.OUTERWEAR, LabelCheck.suggestion(item("merino-navy").copy(name = "Μπουφάν"))!!.target)
+        assertNull(LabelCheck.hintFromName("ζακετάκι"))
+    }
+
     @Test fun `a cardigan filed as outerwear is flagged`() {
         val i = item("denim-jacket").copy(name = "Grey cardigan")
         assertEquals(Subcategory.CARDIGAN, LabelCheck.suggestion(i)!!.suggested)
@@ -89,6 +96,8 @@ class LabelCheckTest {
         assertEquals(CategoryGroup.OUTERWEAR, LabelCheck.suggestion(leather)!!.target)
         val photo = LabelCheck.suggestion(item("merino-grey"), Subcategory.PARKA)!!
         assertEquals(LabelIssue.PHOTO, photo.issue)
+        // Untick "outer layer" on an overshirt: a choice, not a mistake.
+        assertNull(LabelCheck.suggestion(item("overshirt-olive").copy(slots = listOf(Slot.MID))))
         val slots = LabelCheck.suggestion(item("trench").copy(slots = listOf(Slot.MID)))!!
         assertEquals(LabelIssue.SLOTS, slots.issue)
         assertEquals(item("trench").slots, LabelCheck.fix(slots)!!.slots)

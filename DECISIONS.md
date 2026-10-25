@@ -191,3 +191,31 @@ Choices made where the spec left room, or where it was changed. Newest first.
   `androidx.profileinstaller` 1.4.1 (new dependency: the official Jetpack library that
   installs the profile on sideloaded APKs, about 30 KB), so our code is compiled ahead of time
   instead of running in the interpreter first.
+
+### Fresh outfits, experiment mode, colour reading
+- **Shown outfits are held back.** The core-piece signatures of outfits from the last 3 days'
+  decks (and today's, for "More") are left out of new decks while at least twice the deck size
+  of fresh candidates remains; otherwise shown ones fill in at the end. Accessories don't make
+  an outfit new.
+- **Experiment mode (Today chip, Style profile switch).**
+  - Boldness +0.35, Adventurous strictness, at least 40 % new-idea cards.
+  - Learned taste weighted ×0.4, and MMR λ −0.15 (more variety).
+  - Unusual (non-clashing) pairs are welcome.
+  - Known clashes and all hard rules still apply.
+- **Item seasons count.** Each core piece not tagged for any season that fits today costs 0.04
+  raw (about 0.1 Match). Today's seasons are the calendar season plus summer on summer-like days
+  (feels ≥ 22 °C), winter on cold ones (≤ 8 °C), and spring and autumn on mild ones. A soft
+  penalty, not a block.
+- **"Worn as" is in the main item form.** Unticking "Outer layer" on an overshirt is a choice:
+  Check labels flags layers only when the subcategory's main layer is missing.
+- **Greek names in Check labels**, matched accent-free with Unicode word boundaries (ζακέτα,
+  παλτό, μπουφάν…).
+- **The "Why not?" reasons stay** until you pick, skip or swipe on, and wrap so all are visible.
+- **GarmentColors** replaces plain k-means for photos:
+  - Pixels are taken only from well inside the cutout (fully opaque with opaque neighbours,
+    no smoothing when downsizing), so edges blended with the background don't count.
+  - Shades of one fabric (same hue at a different lightness, chroma washed out by shadow or
+    glare) merge into one colour.
+  - Each colour is the median of its pixels after trimming the darkest 25 % and brightest
+    10 %.
+  - Wardrobe multi-select has "Re-read colours" for pieces added before.

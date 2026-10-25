@@ -470,4 +470,15 @@
     <string name="why_personal">your personal colour settings exclude its colour.</string>
     <string name="why_rotation">strict rotation is on and you wore it recently.</string>
     <string name="why_other">it can\'t fit any outfit slot here.</string>
+    <string name="reread_colors">Re-read colours</string>
+    <string name="rereading_colors">Reading colours…</string>
+    <string name="worn_as">Worn as</string>
+    <string name="worn_as_top">Top</string>
+    <string name="worn_as_mid">Mid layer</string>
+    <string name="worn_as_outer">Outer layer (jacket)</string>
+    <string name="worn_as_hint">Suggestions only put the piece where it is ticked. Untick Outer layer for a piece that is never your jacket.</string>
+    <string name="also_outer">also a jacket</string>
+    <string name="experiment">✦ Experiment</string>
+    <string name="experiment_title">Experiment with style</string>
+    <string name="experiment_body">Bolder colours, looser style rules, more new ideas and less of what you usually pick. Clashes, weather and the occasion still count.</string>
 </resources>

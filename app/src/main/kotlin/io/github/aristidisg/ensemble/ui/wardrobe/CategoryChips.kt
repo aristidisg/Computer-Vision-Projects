@@ -14,6 +14,9 @@ import io.github.aristidisg.ensemble.model.Slot
 import io.github.aristidisg.ensemble.model.Subcategory
 import io.github.aristidisg.ensemble.ui.common.ChoiceChips
 
+/** Mid layers that can also be the outer layer by default (overshirt, gilet, fleece). */
+fun Subcategory.alsoOuter(): Boolean = Slot.OUTER in TaxonomyTable.of(this).slots
+
 /** True for pieces worn over a top (sweaters, cardigans, hoodies, overshirts...). */
 fun Subcategory.isMidLayer(): Boolean = TaxonomyTable.of(this).slots.first() == Slot.MID
 
@@ -28,7 +31,8 @@ fun SubcategoryChips(group: CategoryGroup, selected: Subcategory?, onPick: (Subc
         Label(stringResource(R.string.cat_tops))
         ChoiceChips(subs.filter { !it.isMidLayer() }, setOfNotNull(selected), { it.label }, onPick)
         Label(stringResource(R.string.cat_mid_layers))
-        ChoiceChips(subs.filter { it.isMidLayer() }, setOfNotNull(selected), { it.label }, onPick)
+        val alsoOuter = stringResource(R.string.also_outer)
+        ChoiceChips(subs.filter { it.isMidLayer() }, setOfNotNull(selected), { if (it.alsoOuter()) "${it.label} · $alsoOuter" else it.label }, onPick)
     } else {
         if (group == CategoryGroup.OUTERWEAR) Label(stringResource(R.string.cat_outerwear))
         ChoiceChips(subs, setOfNotNull(selected), { it.label }, onPick)

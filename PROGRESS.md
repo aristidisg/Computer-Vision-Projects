@@ -79,6 +79,15 @@ Actions is the build machine (see DECISIONS.md).
     Each flag has a one-tap fix, a picker and "It's right". Every mid and outer layer is also
     listed for a manual pass.
   - **Category picker** now splits Tops from Mid layers and labels Outer layers.
+- [x] **Fresh outfits, experiment, colours, layers.**
+  - Outfits shown in the last 3 days are held back.
+  - ✦ Experiment mode.
+  - Item seasons now count (weather-aware).
+  - "Worn as" chips in the item form.
+  - Greek name hints.
+  - The why-not bar stays.
+  - The deck rebuilds when a card no longer fits a piece.
+  - Shade-aware photo colours with "Re-read colours".
 - [x] **Fair-share rotation.**
   - Each piece is held to its fair share within a deck. Over-used pieces are swapped out when
     that costs at most 0.08 Match.
@@ -125,7 +134,7 @@ Actions is the build machine (see DECISIONS.md).
 
 ## Tests
 
-- :engine — 116 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
+- :engine — 130 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,

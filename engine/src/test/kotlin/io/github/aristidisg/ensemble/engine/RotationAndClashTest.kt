@@ -5,6 +5,7 @@ import io.github.aristidisg.ensemble.engine.Fixtures.item
 import io.github.aristidisg.ensemble.engine.Fixtures.look
 import io.github.aristidisg.ensemble.engine.color.ColorScience
 import io.github.aristidisg.ensemble.engine.color.KMeans
+import io.github.aristidisg.ensemble.engine.generator.DeckBuilder
 import io.github.aristidisg.ensemble.engine.generator.FairShare
 import io.github.aristidisg.ensemble.engine.generator.Generator
 import io.github.aristidisg.ensemble.engine.rules.ColorPairRules
@@ -152,5 +153,26 @@ class WhyNotSuggestedTest {
             HardConstraints.whyNotSuggested(item("tee-white").copy(flags = io.github.aristidisg.ensemble.model.ItemFlags(neverSuggest = true)), c))
         assertEquals(io.github.aristidisg.ensemble.engine.rules.Violation.WEATHER,
             HardConstraints.whyNotSuggested(item("chino-shorts"), ctx("casual", Fixtures.weather(5.0, 9.0))))
+    }
+}
+
+class FreshOutfitsTest {
+    private val engine = OutfitEngine()
+
+    @Test fun `outfits already shown are not suggested again while new ones exist`() {
+        val base = ctx("casual", Fixtures.weather(15.0, 19.0))
+        val first = engine.generate(base, Fixtures.wardrobe).cards
+        val shown = first.map { DeckBuilder.coreSignature(it) }.toSet()
+        val second = engine.generate(base.copy(shownOutfits = shown), Fixtures.wardrobe).cards
+        assertEquals(first.size, second.size)
+        assertTrue(second.none { DeckBuilder.coreSignature(it) in shown }, "repeated outfits came back")
+    }
+
+    @Test fun `a tiny wardrobe still gets a full deck from shown outfits`() {
+        val few = listOf("tee-white", "tee-navy", "jeans-dark", "chinos-stone", "white-sneakers").map { item(it) }
+        val c = ctx("casual", Fixtures.weather(22.0, 26.0), items = few)
+        val first = engine.generate(c, few).cards
+        val second = engine.generate(c.copy(shownOutfits = first.map { DeckBuilder.coreSignature(it) }.toSet()), few).cards
+        assertTrue(second.isNotEmpty())
     }
 }

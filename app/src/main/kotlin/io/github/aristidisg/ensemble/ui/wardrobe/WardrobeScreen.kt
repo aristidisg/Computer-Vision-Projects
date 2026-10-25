@@ -218,6 +218,8 @@ private fun BulkBar(n: Int, vm: WardrobeViewModel) {
                     DropdownMenuItem(text = { Text(Season.entries.joinToString(" · ") { it.label.take(3) }) }, onClick = { season = false; vm.bulkSeasons(Season.entries.toSet()) })
                 }
             }
+            val busy by vm.busy.collectAsStateWithLifecycle()
+            TextButton(onClick = vm::bulkRereadColors, enabled = !busy) { Text(stringResource(if (busy) R.string.rereading_colors else R.string.reread_colors)) }
             TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             TextButton(onClick = vm::clearSelection) { Text(stringResource(R.string.cancel)) }
         }

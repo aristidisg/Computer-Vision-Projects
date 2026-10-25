@@ -54,6 +54,8 @@ data class TodayState(
     val undoCount: Int = 0,
     val message: String? = null,
     val weatherError: String? = null,
+    /** Experiment mode: bolder, more creative suggestions. */
+    val experiment: Boolean = false,
 )
 
 @HiltViewModel
@@ -86,6 +88,7 @@ class TodayViewModel @Inject constructor(
             // Rebuild only when a newer forecast actually arrived.
             if (r.getOrNull()?.fetchedAtMillis?.let { it != before } == true) generate()
         }
+        viewModelScope.launch { settings.settings.collect { s -> _state.update { it.copy(experiment = s.experimentMode) } } }
         viewModelScope.launch {
             var ids: Set<String>? = null
             wardrobe.items.collect { items ->
@@ -93,7 +96,11 @@ class TodayViewModel @Inject constructor(
                 // Pieces added or deleted elsewhere: rebuild the deck so it never shows a deleted
                 // piece and new pieces get a chance. Swipes and wears keep the set, so no reshuffle.
                 val now = items.map { it.id }.toSet()
-                if (ids != null && now != ids && _state.value.scenario != null) generate()
+                // Also when a card no longer fits the pieces: a layer unticked ("not a jacket"),
+                // a piece sent to the laundry or to storage.
+                val byId = items.associateBy { it.id }
+                val stale = _state.value.cards.any { c -> c.pieces.any { p -> byId[p.itemId]?.let { i -> p.slot !in i.slots || !i.isAvailable } ?: true } }
+                if (ids != null && (now != ids || stale) && _state.value.scenario != null && !_state.value.loading) generate()
                 ids = now
             }
         }
@@ -117,6 +124,13 @@ class TodayViewModel @Inject constructor(
     }
 
     fun more() { regenerate++; generate() }
+
+    /** Experiment on/off: a new deck straight away in the new mode. */
+    fun setExperiment(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(experimentMode = on) }
+        regenerate++
+        generate()
+    }
     fun bolder() { regenerate++; boldShift = (boldShift + 0.2).coerceAtMost(0.6); generate() }
     fun safer() { regenerate++; boldShift = (boldShift - 0.2).coerceAtLeast(-0.4); generate() }
 

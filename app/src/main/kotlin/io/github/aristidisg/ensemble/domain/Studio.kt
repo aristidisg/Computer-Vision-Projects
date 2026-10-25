@@ -22,6 +22,7 @@ import io.github.aristidisg.ensemble.engine.learning.LearningConfig
 import io.github.aristidisg.ensemble.engine.learning.PreferenceSnapshot
 import io.github.aristidisg.ensemble.engine.tables.ScenarioPresets
 import io.github.aristidisg.ensemble.model.Item
+import io.github.aristidisg.ensemble.model.Outfit
 import io.github.aristidisg.ensemble.model.OutfitPiece
 import io.github.aristidisg.ensemble.model.Scenario
 import io.github.aristidisg.ensemble.model.Settings
@@ -38,6 +39,8 @@ data class DayWeather(val window: WindowWeather, val fromForecast: Boolean, val 
 private const val EXPOSURE_DECKS = 5
 /** Deck logs read back; the table keeps the latest 60. */
 private const val DECK_LOG_SIZE = 60
+/** Days of decks whose outfits are held back from new decks. */
+private const val SHOWN_DAYS = 3
 
 /**
  * Builds engine contexts from everything stored on the phone and runs the engine off the main
@@ -105,6 +108,9 @@ class Studio @Inject constructor(
                 .sortedByDescending { it.key }.take(EXPOSURE_DECKS)
                 .map { (_, ds) -> ds.flatMap { DeckLog.decode(it.json) } }
             val shown = decks.flatten()
+            // Outfits from the last 3 days (and today's earlier decks for "More") are held back.
+            val shownOutfits = decks.take(SHOWN_DAYS).flatten().filter { it.items.isNotEmpty() }
+                .map { Outfit.signatureOf(it.items) }.toSet()
             EngineContext(
                 scenario = scenario,
                 weather = weatherOverride ?: dayWeather(epochDay, scenario, s).window,
@@ -118,6 +124,7 @@ class Studio @Inject constructor(
                 recentDeckSignatures = recent,
                 recentDeckItems = DeckLog.exposure(shown),
                 recentDeckCount = shown.size,
+                shownOutfits = shownOutfits,
                 outfitCooldowns = saved.mapNotNull { o -> o.cooldownDays?.let { o.signature to it } }.toMap(),
                 neverAgain = saved.filter { it.neverShow }.map { it.signature }.toSet(),
                 collection = saved.filter { it.liked && !it.neverShow }.map { it.pieces },

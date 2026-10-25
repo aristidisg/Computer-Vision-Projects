@@ -64,6 +64,11 @@ data class EngineContext(
     val recentDeckItems: Map<String, Int> = emptyMap(),
     /** Total cards those decks showed. */
     val recentDeckCount: Int = 0,
+    /**
+     * Core-piece signatures of outfits shown in recent decks: new decks hold them back so you
+     * see new combinations instead of the same outfits again.
+     */
+    val shownOutfits: Set<String> = emptySet(),
     /** Outfit signatures the user explicitly allowed despite a cooldown ("Use anyway"). */
     val cooldownOverrides: Set<String> = emptySet(),
     /** Per-outfit cooldown overrides keyed by signature. */
@@ -80,8 +85,27 @@ data class EngineContext(
     val weekday: Int get() = date.dayOfWeek.value
     val season: Season get() = seasonOf(epochDay)
 
-    /** Boldness after the strictness preset and learned "too boring / too loud" nudges. */
-    val boldness: Double get() = (settings.boldness + prefs.boldnessDelta).coerceIn(0.0, 1.0)
+    /**
+     * Seasons a piece may belong to today: the calendar season, plus summer on a day that feels
+     * like summer and winter on one that feels like winter (a 28 °C October afternoon is linen
+     * weather).
+     */
+    val seasonsNow: Set<Season> get() = buildSet {
+        add(season)
+        if (weather.feelsMid >= 22.0) add(Season.SUMMER)
+        if (weather.feelsMid <= 8.0) add(Season.WINTER)
+        if (weather.feelsMid in 12.0..22.0) { add(Season.SPRING); add(Season.AUTUMN) }
+    }
+
+    /** Boldness after the strictness preset and learned "too boring / too loud" nudges (+ experiment). */
+    val boldness: Double get() = (settings.boldness + prefs.boldnessDelta + if (settings.experimentMode) EXPERIMENT_BOLDNESS else 0.0).coerceIn(0.0, 1.0)
+
+    /** Experiment loosens the style rules as the Adventurous preset does. */
+    val strictness: io.github.aristidisg.ensemble.model.Strictness get() =
+        if (settings.experimentMode) io.github.aristidisg.ensemble.model.Strictness.ADVENTUROUS else settings.strictness
+
+    /** Share of new-idea cards in a deck. */
+    val explorationRate: Double get() = if (settings.experimentMode) maxOf(settings.explorationRate, EXPERIMENT_EXPLORATION) else settings.explorationRate
 
     /** Thermal offset in °C: positive means the user runs cold and wants more warmth. */
     val thermalOffset: Double get() = settings.thermalBias + prefs.thermalOffset
@@ -100,6 +124,11 @@ data class EngineContext(
     fun ruleWeight(id: String, default: Double = 1.0): Double = settings.ruleWeights[id] ?: default
 
     companion object {
+        /** Experiment mode: extra boldness, share of new-idea cards, weight left to learned taste. */
+        const val EXPERIMENT_BOLDNESS = 0.35
+        const val EXPERIMENT_EXPLORATION = 0.4
+        const val EXPERIMENT_LEARNED = 0.4
+
         /** Northern-hemisphere meteorological seasons. */
         fun seasonOf(epochDay: Long): Season = when (LocalDate.ofEpochDay(epochDay).monthValue) {
             12, 1, 2 -> Season.WINTER

@@ -79,9 +79,10 @@ object Scorer {
     }
 
     fun groupWeight(g: RuleGroup, ctx: EngineContext): Double {
-        if (g == RuleGroup.LEARNED) return ctx.prefs.learnedWeight
+        // Experiment leans less on what you usually like, so new directions can win.
+        if (g == RuleGroup.LEARNED) return ctx.prefs.learnedWeight * if (ctx.settings.experimentMode) EngineContext.EXPERIMENT_LEARNED else 1.0
         var w = ctx.ruleWeight("group:${g.name}", g.defaultWeight)
-        val strict = ctx.settings.strictness
+        val strict = ctx.strictness
         if (g == RuleGroup.PATTERN_TEXTURE || g == RuleGroup.FORMALITY_STYLE) {
             w *= when (strict) { Strictness.CLASSIC -> 1.25; Strictness.ADVENTUROUS -> 0.8; else -> 1.0 }
         }
@@ -107,6 +108,14 @@ object Scorer {
             results += res("CUSTOM", RuleGroup.FORMALITY_STYLE, if (w > 0) 1.0 else 0.0, 0.0, Explain.CUSTOM_RULE, "name" to rule.name)
         }
         CollectionRules.influence(look, ctx)?.let { (bonus, line) -> total += bonus; results += line }
+        // The seasons ticked on a piece: off-season core pieces cost Match (strongly, but not a
+        // hard block, so a warm autumn day can still bring out linen if nothing else fits).
+        val now = ctx.seasonsNow
+        val offSeason = look.core.map { it.item }.filter { it.seasons.isNotEmpty() && it.seasons.none { s -> s in now } }
+        if (offSeason.isNotEmpty()) {
+            total -= OFF_SEASON_PENALTY * offSeason.size
+            results += res("SEASON", RuleGroup.WEATHER, 0.2, 0.0, Explain.OUT_OF_SEASON, "item" to offSeason.first().name.lowercase())
+        }
         val comfort = look.items.mapNotNull { ctx.prefs.comfortPenalty[it.id] }.sum()
         total = calibrate(total - comfort)
 
@@ -139,6 +148,9 @@ object Scorer {
 
     const val CALIBRATION_FLOOR = 0.6
 
+    /** Raw score per core piece not tagged for the current season (about 0.1 on the Match scale). */
+    const val OFF_SEASON_PENALTY = 0.04
+
     private val negativeKeys = setOf(
         Explain.HARMONY_WEAK, Explain.TOO_MANY_ACCENTS, Explain.COLOR_FIGHT, Explain.LOW_CONTRAST, Explain.GREY_MUSH,
         Explain.CHROMA_HEAVY, Explain.UNUSUAL_PAIR, Explain.DENIM_CLASH, Explain.NEAR_MISS, Explain.LEATHER_CLASH,
@@ -148,7 +160,7 @@ object Scorer {
         Explain.SHOE_CLASH, Explain.SHOE_WEATHER_BAD, Explain.SHOE_REST, Explain.SHOE_DARKER, Explain.ACCESSORY_COUNT,
         Explain.BELT_MISSING, Explain.BELT_WRONG, Explain.HEADWEAR_OFF, Explain.TOO_COLD, Explain.TOO_WARM,
         Explain.RAIN_UNPROTECTED, Explain.ROTATION, Explain.NEAR_DUPLICATE, Explain.SEEN_RECENTLY, Explain.PLANNED_SOON,
-        Explain.LAUNDRY_DUE, Explain.LEARNED_DISLIKE,
+        Explain.LAUNDRY_DUE, Explain.LEARNED_DISLIKE, Explain.OUT_OF_SEASON,
     )
 
     /** "You've liked {a} with {b} {n} times" for the strongest liked color-family pair. */

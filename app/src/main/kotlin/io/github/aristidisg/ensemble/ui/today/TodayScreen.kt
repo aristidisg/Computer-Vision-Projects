@@ -63,7 +63,6 @@ import io.github.aristidisg.ensemble.ui.nav.ItemDetailRoute
 import io.github.aristidisg.ensemble.ui.nav.OutfitDetailRoute
 import io.github.aristidisg.ensemble.ui.nav.PiecesArg
 import io.github.aristidisg.ensemble.ui.nav.WardrobeRoute
-import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -88,6 +87,7 @@ fun TodayScreen(nav: NavHostController, vm: TodayViewModel = hiltViewModel()) {
                 FilterChip(selected = s.epochDay == s.today, onClick = { vm.selectDay(s.today) }, label = { Text(stringResource(R.string.today)) })
                 FilterChip(selected = s.epochDay == s.today + 1, onClick = { vm.selectDay(s.today + 1) }, label = { Text(stringResource(R.string.tomorrow)) })
                 FilterChip(selected = s.epochDay > s.today + 1, onClick = { datePicker = true }, label = { Text(stringResource(R.string.pick_date)) })
+                FilterChip(selected = s.experiment, onClick = { vm.setExperiment(!s.experiment) }, label = { Text(stringResource(R.string.experiment)) })
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 s.scenarios.forEach { sc ->
@@ -178,14 +178,13 @@ private fun EndOfDeck(vm: TodayViewModel) {
 /** "Why not?" chips slide up for 4 seconds after a No; skippable. */
 @Composable
 private fun WhyNotBar(card: String?, onPick: (WhyNot) -> Unit, onSkip: () -> Unit, modifier: Modifier) {
-    val visible = card != null
-    // Keyed by card: each No gets its own 4 seconds, even when the bar was already showing.
-    LaunchedEffect(card) { if (card != null) { delay(4000); onSkip() } }
-    AnimatedVisibility(visible, modifier, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
+    // No timer: the reasons stay until you pick one, tap Skip or swipe the next card.
+    AnimatedVisibility(card != null, modifier, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
         androidx.compose.material3.Surface(tonalElevation = 6.dp, shadowElevation = 6.dp, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text(stringResource(R.string.why_not), style = MaterialTheme.typography.titleSmall)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // All reasons visible at once (wrapping), none hidden off-screen.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     WhyNot.entries.filter { it != WhyNot.NOT_THIS_PIECE }.forEach { r ->
                         AssistChip(onClick = { onPick(r) }, label = { Text(r.label) })
                     }

@@ -8,6 +8,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import io.github.aristidisg.ensemble.engine.color.ColorScience
+import io.github.aristidisg.ensemble.engine.color.GarmentColors
 import io.github.aristidisg.ensemble.engine.color.KMeans
 import io.github.aristidisg.ensemble.engine.color.Lab
 import io.github.aristidisg.ensemble.engine.color.PatternHint
@@ -125,14 +126,29 @@ object ImageOps {
         return out
     }
 
-    /** SPEC 3 step 5: sample alpha ≥ 0.5 pixels at about 128 px and run seeded k-means in OKLab. */
+    /**
+     * SPEC 3 step 5, tuned for accuracy: sample only pixels well inside the garment (fully
+     * opaque, with fully opaque neighbours, so cutout edges blended with the background never
+     * count), at about 192 px without smoothing, then GarmentColors: k-means, shade merge and a
+     * robust median per color.
+     */
     fun extractColors(cutout: Bitmap): List<ItemColor> {
-        val small = scaleToFit(cutout, 128)
-        val px = IntArray(small.width * small.height).also { small.getPixels(it, 0, small.width, 0, 0, small.width, small.height) }
-        val samples = px.filter { Color.alpha(it) >= 128 }.map { c ->
-            Sample(ColorScience.rgbToLab(Color.red(c), Color.green(c), Color.blue(c)), Color.alpha(c) / 255.0)
+        val s = minOf(1f, 192f / maxOf(cutout.width, cutout.height))
+        val small = if (s >= 1f) cutout else Bitmap.createScaledBitmap(cutout, (cutout.width * s).roundToInt().coerceAtLeast(1), (cutout.height * s).roundToInt().coerceAtLeast(1), false)
+        val w = small.width; val h = small.height
+        val px = IntArray(w * h).also { small.getPixels(it, 0, w, 0, 0, w, h) }
+        fun solid(x: Int, y: Int) = x in 0 until w && y in 0 until h && Color.alpha(px[y * w + x]) >= 250
+        val inner = ArrayList<Sample>()
+        for (y in 0 until h) for (x in 0 until w) {
+            if (!solid(x, y) || !solid(x - 1, y) || !solid(x + 1, y) || !solid(x, y - 1) || !solid(x, y + 1)) continue
+            val c = px[y * w + x]
+            inner += Sample(ColorScience.rgbToLab(Color.red(c), Color.green(c), Color.blue(c)), 1.0)
         }
-        return KMeans.toItemColors(KMeans.cluster(samples, seed = 42))
+        // A very thin piece (a belt, a strap) may have no inner pixels: fall back to opaque ones.
+        val samples = inner.ifEmpty {
+            px.filter { Color.alpha(it) >= 128 }.map { c -> Sample(ColorScience.rgbToLab(Color.red(c), Color.green(c), Color.blue(c)), 1.0) }
+        }
+        return GarmentColors.extract(samples)
     }
 
     /** SPEC 3 step 6: contrasting clusters plus dense Sobel edges on lightness suggest a pattern. */

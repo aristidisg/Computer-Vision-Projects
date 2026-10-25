@@ -58,17 +58,28 @@ object ImageOps {
         return Bitmap.createScaledBitmap(b, (b.width * s).roundToInt().coerceAtLeast(1), (b.height * s).roundToInt().coerceAtLeast(1), true)
     }
 
-    /** Gray-world: scale channels so the image mean is neutral (saturated pixels ignored). */
-    fun grayWorldGains(b: Bitmap): Gains {
+    /**
+     * Gray-world on the background: assumes the backdrop is neutral and averages only pixels
+     * outside the garment [mask] (a border frame without one; saturated pixels ignored).
+     * Averaging the garment too would "correct" a brown jacket toward grey.
+     */
+    fun grayWorldGains(b: Bitmap, mask: Mask? = null): Gains {
         val small = scaleToFit(b, 256)
-        val px = IntArray(small.width * small.height).also { small.getPixels(it, 0, small.width, 0, 0, small.width, small.height) }
+        val w = small.width; val h = small.height
+        val px = IntArray(w * h).also { small.getPixels(it, 0, w, 0, 0, w, h) }
         var r = 0.0; var g = 0.0; var bl = 0.0; var n = 0
-        for (c in px) {
+        for (i in px.indices) {
+            val x = i % w; val y = i / w
+            val background = if (mask != null) {
+                mask.a[(y * mask.h / h).coerceIn(0, mask.h - 1) * mask.w + (x * mask.w / w).coerceIn(0, mask.w - 1)] < 0.5f
+            } else x < w / 8 || x >= w - w / 8 || y < h / 8 || y >= h - h / 8
+            if (!background) continue
+            val c = px[i]
             val cr = Color.red(c); val cg = Color.green(c); val cb = Color.blue(c)
             if (max(cr, max(cg, cb)) >= 250 || cr + cg + cb < 30) continue
             r += cr; g += cg; bl += cb; n++
         }
-        if (n == 0) return Gains.IDENTITY
+        if (n < 50) return Gains.IDENTITY
         val mean = (r + g + bl) / (3 * n)
         return Gains((mean / (r / n)).toFloat().coerceIn(0.6f, 1.6f), (mean / (g / n)).toFloat().coerceIn(0.6f, 1.6f), (mean / (bl / n)).toFloat().coerceIn(0.6f, 1.6f))
     }

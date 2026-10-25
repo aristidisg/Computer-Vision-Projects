@@ -1,8 +1,11 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.today
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,7 +60,7 @@ fun WeatherCard(s: TodayState, onRefresh: () -> Unit, onManual: () -> Unit) {
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.feels_range, w.feelsMin.roundToInt(), w.feelsMax.roundToInt()), style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(stringResource(R.string.rain_pct, w.rainProbMax.roundToInt()), style = MaterialTheme.typography.bodySmall)
                     Text(stringResource(R.string.wind_kmh, w.windMax.roundToInt()), style = MaterialTheme.typography.bodySmall)
                     if (w.uvMax >= 3) Text(stringResource(R.string.uv_index, w.uvMax.roundToInt()), style = MaterialTheme.typography.bodySmall)

@@ -1,5 +1,8 @@
 package io.github.aristidisg.ensemble.ui.today
 
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -72,12 +75,12 @@ fun OutfitCard(card: ScoredOutfit, items: Map<String, Item>, onOpen: () -> Unit,
             Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.match_pct, card.matchPct), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 AssistChip(onClick = onOpen, label = { Text(card.harmony, maxLines = 1) })
                 val f = card.results.firstOrNull { it.id == "F2" }?.args?.get("f")
-                if (f != null) AssistChip(onClick = onOpen, label = { Text("${stringResource(R.string.formality)} $f") })
+                if (f != null) AssistChip(onClick = onOpen, label = { Text("${stringResource(R.string.formality)} $f", maxLines = 1) })
                 card.weatherLine?.let { w ->
-                    AssistChip(onClick = onOpen, label = { Text(explain(w), maxLines = 1, overflow = TextOverflow.Ellipsis) })
+                    AssistChip(onClick = onOpen, label = { Text(explain(w), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 220.dp)) })
                 }
             }
             card.why.firstOrNull()?.let {

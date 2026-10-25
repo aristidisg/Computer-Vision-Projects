@@ -44,17 +44,30 @@ Actions is the build machine (see DECISIONS.md).
 - [x] **Phase 11 — Polish and release readiness (first pass).** Onboarding, morning
   notification with Wear it / See more, Glance widget, export/import zip with preview,
   weekly backup folder, delete-all with typed confirmation, R8 release build, app icon.
+- [x] **Colour accuracy and wardrobe routines.**
+  - **Exact colours.** Every colour has an editable code (#fff or #3B2A22). The rules use the
+    exact code, and the family name is only a label.
+  - **Multicolour pieces.** Up to 6 colours, each with a share slider. Roles (primary,
+    secondary, accent) follow the shares.
+  - **Dark browns no longer read as navy.** Family matching weights hue twice as much as
+    lightness, and white balance is off by default; Auto now averages only the background.
+  - **Editor fixes.** Save is always visible, and "Same as…" copies every tag from another
+    piece.
+  - **Wardrobe routines.** Seasonal swap, a shopping list fed by the gap finder, and a
+    "Wear it again" row in Outfits → Saved.
+  - **Layout.** Rows that squeezed text into one letter per line now wrap or scroll.
 
 ## Tests
 
-- :engine — 73 tests: color conversions against reference values, artist-hue anchors,
+- :engine — 88 tests (colour edits, seasonal swap, wear again and shopping list included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,
   gap finder, recreate, weather windows, **all 18 golden cases**, 300-item benchmark
   (~0.3 s on a desktop JVM; limit 1.5 s).
 - :data — Robolectric: items round trip, outfits by signature, stats = rebuild, scenario
-  overlay, export → delete → import, Open-Meteo parsing from recorded fixtures.
+  overlay, export → delete → import, Open-Meteo parsing from recorded fixtures, settings
+  saved before the shopping list existed still load.
 
 ## Next
 
@@ -77,3 +90,7 @@ Actions is the build machine (see DECISIONS.md).
 - Category hints rely on ML Kit's general labels, which are coarse; the subcategory grid is
   always shown underneath.
 - Glance widget shows names and color dots, not photos.
+- Colours from a photo are only as good as the light: under warm indoor light, type the code
+  (or use the eyedropper) for pieces that matter.
+- The shopping list is a simple checklist; ticking an entry off doesn't add the piece to the
+  wardrobe.

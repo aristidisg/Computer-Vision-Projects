@@ -28,6 +28,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class ScenarioEditorRoute(val id: String? = null)
 @Serializable object PersonalColorRoute
 @Serializable object InsightsRoute
+@Serializable object ShoppingListRoute
 @Serializable object RotationRoute
 @Serializable object LocationRoute
 @Serializable object NotificationsRoute

@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.you
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -106,7 +109,7 @@ fun ScenarioEditorScreen(id: String?, nav: NavHostController, vm: ScenariosViewM
             SectionTitle(stringResource(R.string.palette))
             ChoiceChips(ScenarioPalette.entries, setOf(sc.palette), { it.name.lowercase().replace('_', ' ') }, { s = sc.copy(palette = it) }, scroll = true)
             SliderRow(stringResource(R.string.accessories_range, sc.accessoryMin, sc.accessoryMax), sc.accessoryMax.toFloat(), 0f..5f, { s = sc.copy(accessoryMax = it.roundToInt(), accessoryMin = minOf(sc.accessoryMin, it.roundToInt())) }, { "${it.roundToInt()}" }, steps = 4)
-            Row(Modifier.padding(vertical = 16.dp)) {
+            FlowRow(Modifier.padding(vertical = 16.dp)) {
                 OutlinedButton(onClick = { vm.delete(sc.id); nav.popBackStack() }) {
                     Text(stringResource(if (ScenarioPresets.byId(sc.id) != null) R.string.restore_default else R.string.delete))
                 }

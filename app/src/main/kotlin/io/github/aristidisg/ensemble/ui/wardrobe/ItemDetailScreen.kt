@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.wardrobe
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -121,8 +124,8 @@ fun ItemDetailScreen(id: String, nav: NavHostController, vm: ItemDetailViewModel
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
             ItemArt(i, Modifier.fillMaxWidth().height(280.dp).clip(RoundedCornerShape(20.dp)).background(LocalEnsembleColors.current.backdrop).padding(12.dp), thumb = false)
             Text("${i.subcategory.label} · ${i.silhouette.label} · ${stringResource(R.string.formality)} ${i.formality}/10", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 6.dp)) {
-                i.colors.forEach { ColorDot(it.hex, it.family.label) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 6.dp)) {
+                i.colors.forEach { ColorDot(it.hex, "${it.family.label} ${it.hex}") }
             }
             Text(listOfNotNull(i.pattern.type.label, i.materials.joinToString { it.label }.ifEmpty { null }, i.styleTags.joinToString { it.label }).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
             SectionTitle(stringResource(R.string.wears))

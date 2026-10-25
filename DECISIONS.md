@@ -60,6 +60,38 @@ Choices made where the spec left room, or where it was changed. Newest first.
 - **"Forget this"** removes a feature from the cached stats; "Rebuild from history" replays the
   log and would bring it back (the log is the source of truth).
 - **Seasons** are northern-hemisphere meteorological seasons.
+- **Exact colours drive the rules.**
+  - The colour rules have always measured the exact colour (lightness, chroma, hue).
+  - The family is used for the pairing table (C7) and the neutralness floor.
+  - A typed code recomputes Lab and the family from that code, so typing #3B2A22 changes both
+    at once.
+- **Family matching weights hue (a, b) twice as much as lightness.** Plain ΔE on very dark
+  colours is dominated by lightness, which put a dark brown jacket closer to navy than to
+  chocolate.
+- **White balance is off by default.** Phone cameras already white-balance. Gray-world over the
+  whole photo greys out a photo that is mostly one brown garment. Auto now averages only the
+  background (outside the cutout mask), assuming a neutral backdrop; with no mask it uses a
+  border frame.
+- **Hand edits win.** Once colours are edited by hand, redoing the cutout or white balance no
+  longer overwrites them. A hand-set name or formality survives colour edits.
+- **Up to 6 colours per piece.** The biggest share is primary, shares of 20 % and up are
+  secondary, smaller ones are accents.
+- **"Same as…"** copies every tag from the source piece: subcategory, slots, pattern,
+  materials, warmth, formality, styles, seasons, fit, layering, shoe and accessory extras,
+  laundry threshold, brand, size and tags. The piece keeps its own id, colours, photos,
+  status, flags, price, purchase date, notes and wear count.
+- **Seasonal swap** uses the current meteorological season. It is shown as a preview first.
+  - Available pieces not tagged for the season → Stored.
+  - Stored pieces tagged for it → Available.
+  - Laundry, tailor, lent and retired pieces are untouched.
+- **The shopping list lives in Settings**, so it is included in export and backup with no new
+  Room table or migration. The same piece in the same colour is listed once, and adding it
+  again refreshes its count.
+- **"Wear it again"** lists liked outfits:
+  - worn at least once;
+  - off cooldown (per outfit, or the global setting);
+  - with every piece available.
+  Longest unworn comes first.
 
 ### App
 - **Camera:** the system camera via `TakePicture` instead of an in-app CameraX screen (no extra

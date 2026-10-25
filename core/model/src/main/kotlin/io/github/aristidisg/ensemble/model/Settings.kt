@@ -8,6 +8,21 @@ enum class ItemField(val label: String) {
     PATTERN("Pattern"), MATERIAL("Material"), CUSTOM_TAG("Tag"), ITEM("Specific item")
 }
 
+/** A piece to buy: what it is, its color, and how many new outfits it unlocks. */
+@Serializable
+data class ShoppingEntry(
+    val id: String,
+    val subcategory: Subcategory,
+    val family: ColorFamily,
+    val hex: String,
+    val unlocks: Int = 0,
+    val note: String = "",
+    val done: Boolean = false,
+    val addedEpochDay: Long = 0,
+) {
+    val title: String get() = "${family.label} ${subcategory.label.lowercase()}"
+}
+
 /** Matches a piece when the field has the given value (enum name, tag or item ID). */
 @Serializable
 data class ItemPredicate(val field: ItemField, val value: String)
@@ -119,6 +134,8 @@ data class Settings(
     val autoBackupLastMillis: Long = 0,
     /** Manual weather per day ("set temperature by hand"), keyed by epoch day. */
     val manualWeather: Map<String, WindowWeather> = emptyMap(),
+    /** Pieces to buy, usually added from the gap finder. */
+    val shoppingList: List<ShoppingEntry> = emptyList(),
 ) {
     companion object {
         val DEFAULT_STYLE_WEIGHTS: Map<StyleTag, Double> = StyleTag.entries.associateWith {

@@ -39,9 +39,20 @@ data class ColorInfo(
 object ColorScience {
 
     fun parseHex(hex: String): Rgb {
-        val h = hex.trim().removePrefix("#")
-        require(h.length == 6) { "Expected #RRGGBB, got $hex" }
+        val h = normalizeHex(hex)?.removePrefix("#") ?: throw IllegalArgumentException("Expected #RGB or #RRGGBB, got $hex")
         return Rgb(h.substring(0, 2).toInt(16), h.substring(2, 4).toInt(16), h.substring(4, 6).toInt(16))
+    }
+
+    /** "#fff", "FFF", "#a1b2c3" -> "#FFFFFF" / "#A1B2C3"; null when it isn't a hex color. */
+    fun normalizeHex(input: String): String? {
+        val h = input.trim().removePrefix("#")
+        val six = when {
+            h.length == 3 -> h.map { "$it$it" }.joinToString("")
+            h.length == 6 -> h
+            else -> return null
+        }
+        if (six.any { it.digitToIntOrNull(16) == null }) return null
+        return "#" + six.uppercase()
     }
 
     private fun toLinear(c: Int): Double {
@@ -129,8 +140,18 @@ object ColorScience {
         return if (d > 180.0) 360.0 - d else d
     }
 
+    /**
+     * Nearest named family. Hue and chroma (a, b) weigh twice as much as lightness so very dark
+     * colors keep their hue: a dark brown stays chocolate instead of drifting to navy. The exact
+     * color, not the family, is what the color rules measure.
+     */
     fun nearestFamily(lab: Lab): ColorFamily =
-        ColorTables.families.minBy { deltaE(lab, it.lab) }.family
+        ColorTables.families.minBy { familyDistance(lab, it.lab) }.family
+
+    fun familyDistance(x: Lab, y: Lab): Double {
+        val dl = x.l - y.l; val da = 2 * (x.a - y.a); val db = 2 * (x.b - y.b)
+        return sqrt(dl * dl + da * da + db * db)
+    }
 
     fun neutralness(lab: Lab, family: ColorFamily): Double =
         max(ColorTables.family(family).neutralness, 1.0 - lab.chroma / 0.06).coerceIn(0.0, 1.0)

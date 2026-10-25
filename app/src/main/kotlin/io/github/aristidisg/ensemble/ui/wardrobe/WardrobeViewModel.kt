@@ -7,7 +7,10 @@ import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
 import io.github.aristidisg.ensemble.domain.WardrobeCleaner
+import io.github.aristidisg.ensemble.engine.EngineContext
 import io.github.aristidisg.ensemble.engine.color.ColorScience
+import io.github.aristidisg.ensemble.engine.planner.Routines
+import io.github.aristidisg.ensemble.engine.planner.SwapPlan
 import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.ItemStatus
@@ -17,6 +20,7 @@ import io.github.aristidisg.ensemble.model.StyleTag
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -107,5 +111,25 @@ class WardrobeViewModel @Inject constructor(
         val ids = selected.value
         wardrobe.all().filter { it.id in ids }.forEach { wardrobe.upsert(it.copy(seasons = seasons), time.nowMillis()) }
         clearSelection()
+    }
+
+    private val _swap = MutableStateFlow<Pair<Season, SwapPlan>?>(null)
+    /** The pending seasonal swap, shown for confirmation before anything changes. */
+    val swap = _swap.asStateFlow()
+
+    fun previewSwap() = viewModelScope.launch {
+        val season = EngineContext.seasonOf(time.today())
+        _swap.value = season to Routines.seasonalSwap(wardrobe.all(), season)
+    }
+
+    fun dismissSwap() { _swap.value = null }
+
+    /** Off-season pieces go to storage (never suggested), in-season stored pieces come back. */
+    fun applySwap() = viewModelScope.launch {
+        val (_, plan) = _swap.value ?: return@launch
+        _swap.value = null
+        val now = time.nowMillis()
+        plan.store.forEach { wardrobe.upsert(it.copy(status = ItemStatus.STORED), now) }
+        plan.restore.forEach { wardrobe.upsert(it.copy(status = ItemStatus.AVAILABLE), now) }
     }
 }

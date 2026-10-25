@@ -50,6 +50,7 @@ import io.github.aristidisg.ensemble.ui.wardrobe.WardrobeScreen
 import io.github.aristidisg.ensemble.ui.you.AboutScreen
 import io.github.aristidisg.ensemble.ui.you.CustomRuleScreen
 import io.github.aristidisg.ensemble.ui.you.DataScreen
+import io.github.aristidisg.ensemble.ui.you.ShoppingListScreen
 import io.github.aristidisg.ensemble.ui.you.InsightsScreen
 import io.github.aristidisg.ensemble.ui.you.LocationScreen
 import io.github.aristidisg.ensemble.ui.you.NotificationsScreen
@@ -131,6 +132,7 @@ fun EnsembleNav(launch: LaunchRequest?, onLaunchHandled: () -> Unit) {
             composable<ScenarioEditorRoute> { ScenarioEditorScreen(it.toRoute<ScenarioEditorRoute>().id, nav) }
             composable<PersonalColorRoute> { PersonalColorScreen(nav) }
             composable<InsightsRoute> { InsightsScreen(nav) }
+            composable<ShoppingListRoute> { ShoppingListScreen(nav) }
             composable<RotationRoute> { RotationScreen(nav) }
             composable<LocationRoute> { LocationScreen(nav) }
             composable<NotificationsRoute> { NotificationsScreen(nav) }

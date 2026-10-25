@@ -401,4 +401,31 @@
     <string name="x_silhouette">A relaxed top balanced by slimmer trousers.</string>
     <string name="x_pattern_one">One pattern, everything else solid.</string>
     <string name="x_shoe_rest">Your %1$s need a day off after yesterday.</string>
+    <!-- Exact colors -->
+    <string name="color_code">Color code</string>
+    <string name="add_color_code">Add a color (#fff or #1F2A44)</string>
+    <string name="color_code_hint">Type exact codes like #fff or #3B2A22. Outfit rules use these exact colors; the name is only a label. Use the slider for how much of the piece each color covers.</string>
+    <string name="color_line">%1$s · %2$d%% · %3$s</string>
+    <string name="remove_color">Remove color</string>
+    <string name="pick_by_name">Pick main color by name</string>
+    <string name="save_next">Save and next</string>
+    <string name="same_as">Same as…</string>
+    <string name="same_as_body">Copy every tag (category, materials, formality, seasons, fit…) from a piece you own. This piece keeps its own colors and photo.</string>
+    <!-- Seasonal swap -->
+    <string name="seasonal_swap">Seasonal swap</string>
+    <string name="seasonal_swap_title">Swap for %1$s</string>
+    <string name="seasonal_swap_body">Store %1$d off-season pieces and bring back %2$d stored pieces for this season.</string>
+    <string name="seasonal_swap_nothing">Your wardrobe already matches this season.</string>
+    <string name="seasonal_swap_apply">Swap</string>
+    <!-- Shopping list -->
+    <string name="shopping_list">Shopping list</string>
+    <string name="shopping_empty">Nothing to buy yet. Run the gap finder in Insights and add the pieces you want.</string>
+    <string name="clear_bought">Clear bought</string>
+    <string name="unlocks_n">Unlocks %1$d new outfits</string>
+    <string name="add_to_list">Add to list</string>
+    <string name="on_list">On list</string>
+    <string name="to_buy_n">%1$d to buy</string>
+    <!-- Wear it again -->
+    <string name="wear_again">Wear it again</string>
+    <string name="last_worn_days">Worn %1$d days ago</string>
 </resources>

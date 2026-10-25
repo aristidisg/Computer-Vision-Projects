@@ -57,6 +57,26 @@ class ColorScienceTest {
         for (f in ColorTables.families) assertEquals(f.family, ColorScience.nearestFamily(f.lab), "family ${f.family}")
     }
 
+    @Test fun `short and long hex codes`() {
+        assertEquals("#FFFFFF", ColorScience.normalizeHex("#fff"))
+        assertEquals("#A1B2C3", ColorScience.normalizeHex("a1b2c3"))
+        assertEquals(null, ColorScience.normalizeHex("#ggg"))
+        assertEquals(null, ColorScience.normalizeHex("#1234"))
+        assertEquals(ColorScience.hexToLab("#FFFFFF"), ColorScience.hexToLab("#fff"))
+        assertEquals("#FFFFFF", KMeans.itemColor("#fff").hex)
+    }
+
+    @Test fun `very dark browns stay brown, not navy`() {
+        for (hex in listOf("#2E241F", "#3B2A22", "#33261E", "#4A3A30")) {
+            assertEquals(ColorFamily.CHOCOLATE, ColorScience.nearestFamily(ColorScience.hexToLab(hex)), hex)
+        }
+        // Nearly black browns may read as black, but never as navy.
+        for (hex in listOf("#2A2220", "#28231F")) {
+            assertTrue(ColorScience.nearestFamily(ColorScience.hexToLab(hex)) in setOf(ColorFamily.CHOCOLATE, ColorFamily.BLACK), hex)
+        }
+        assertEquals(ColorFamily.NAVY, ColorScience.nearestFamily(ColorScience.hexToLab("#1B2338")))
+    }
+
     @Test fun `neutralness and temperature`() {
         val navy = ColorScience.info("#1F2A44")
         assertEquals(ColorFamily.NAVY, navy.family)

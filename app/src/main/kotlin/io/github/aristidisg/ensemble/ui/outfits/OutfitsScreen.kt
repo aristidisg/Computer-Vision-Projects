@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -32,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -46,6 +49,8 @@ import io.github.aristidisg.ensemble.data.repo.SettingsRepository
 import io.github.aristidisg.ensemble.data.repo.WardrobeRepository
 import io.github.aristidisg.ensemble.data.repo.WearRepository
 import io.github.aristidisg.ensemble.domain.TimeSource
+import io.github.aristidisg.ensemble.engine.planner.Routines
+import io.github.aristidisg.ensemble.engine.planner.WearAgain
 import io.github.aristidisg.ensemble.model.InspirationLook
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.Outfit
@@ -78,6 +83,8 @@ data class OutfitsState(
     val items: Map<String, Item> = emptyMap(),
     val today: Long = 0,
     val cooldown: Int = 14,
+    /** Liked outfits worn before whose cooldown is over ("Wear it again"). */
+    val ready: List<WearAgain> = emptyList(),
 )
 
 @HiltViewModel
@@ -86,9 +93,11 @@ class OutfitsViewModel @Inject constructor(
 ) : ViewModel() {
     val state = combine(outfits.outfits, looks.looks, wear.logs, wardrobe.items, settings.settings) { o, l, w, i, s ->
         val visible = o.filter { !it.neverShow }
+        val byId = i.associateBy { it.id }
+        val today = time.today()
         OutfitsState(
             visible.filter { it.source != OutfitSource.COMPOSED && it.liked }, visible.filter { it.source == OutfitSource.COMPOSED },
-            l, w, i.associateBy { it.id }, time.today(), s.outfitCooldownDays,
+            l, w, byId, today, s.outfitCooldownDays, Routines.wearAgain(visible, w, byId, today, s.outfitCooldownDays),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), OutfitsState())
 }
@@ -107,7 +116,7 @@ fun OutfitsScreen(nav: NavHostController, vm: OutfitsViewModel = hiltViewModel()
                 }
             }
             when (tab) {
-                0 -> OutfitGrid(s.saved, s, nav, stringResource(R.string.nothing_saved))
+                0 -> { WearAgainRow(s, nav); OutfitGrid(s.saved, s, nav, stringResource(R.string.nothing_saved)) }
                 1 -> OutfitGrid(s.composed, s, nav, stringResource(R.string.composer_hint))
                 2 -> Looks(s.looks, nav)
                 else -> History(s.history, s, nav)
@@ -133,6 +142,23 @@ private fun OutfitGrid(list: List<Outfit>, s: OutfitsState, nav: NavHostControll
                 Collage(o.pieces.mapNotNull { p -> s.items[p.itemId]?.let { it to p.slot } }, Modifier.fillMaxWidth().aspectRatio(0.8f))
                 Text(o.name.ifEmpty { o.pieces.mapNotNull { s.items[it.itemId]?.name }.take(2).joinToString(" + ") }, style = MaterialTheme.typography.labelMedium, maxLines = 1)
                 if (back != null) Text(stringResource(R.string.back_in_days, back.toInt()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** "Wear it again": favourites that are off cooldown, longest-unworn first. Tap to wear today. */
+@Composable
+private fun WearAgainRow(s: OutfitsState, nav: NavHostController) {
+    if (s.ready.isEmpty()) return
+    Text(stringResource(R.string.wear_again), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(s.ready, key = { it.outfit.id }) { r ->
+            val o = r.outfit
+            Column(Modifier.width(120.dp).clickable { nav.navigate(OutfitDetailRoute(PiecesArg.encode(o.pieces), o.scenarioId ?: "", s.today)) }) {
+                Collage(o.pieces.mapNotNull { p -> s.items[p.itemId]?.let { it to p.slot } }, Modifier.fillMaxWidth().aspectRatio(0.8f))
+                Text(o.name.ifEmpty { o.pieces.mapNotNull { s.items[it.itemId]?.name }.take(2).joinToString(" + ") }, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(R.string.last_worn_days, r.daysSince.toInt()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
         }
     }

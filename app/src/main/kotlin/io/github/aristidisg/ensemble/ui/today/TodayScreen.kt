@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package io.github.aristidisg.ensemble.ui.today
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -164,7 +167,7 @@ private fun MinimumSetState(m: MinimumSet, onAdd: () -> Unit, onSeed: () -> Unit
 @Composable
 private fun EndOfDeck(vm: TodayViewModel) {
     EmptyState(stringResource(R.string.deck_end)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = vm::more) { Text(stringResource(R.string.deck_more)) }
             OutlinedButton(onClick = vm::bolder) { Text(stringResource(R.string.deck_bolder)) }
             OutlinedButton(onClick = vm::safer) { Text(stringResource(R.string.deck_safer)) }

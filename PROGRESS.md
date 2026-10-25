@@ -79,6 +79,16 @@ Actions is the build machine (see DECISIONS.md).
     Each flag has a one-tap fix, a picker and "It's right". Every mid and outer layer is also
     listed for a manual pass.
   - **Category picker** now splits Tops from Mid layers and labels Outer layers.
+- [x] **Speed and battery.**
+  - The deck shows at once from the cached forecast.
+  - Location uses the free last-known fix when the forecast is fresh, never turns on GPS, and
+    caches city names.
+  - Daily jobs are no longer re-enqueued on every launch; backup waits for good battery.
+  - Check labels caches ML results.
+  - Learned stats stay in memory.
+  - A baseline profile with profileinstaller compiles our code ahead of time.
+  - The saved-outfit switch is also on the Composed tab: your compositions count, and the
+    composer's Complete it uses the boost.
 - [x] **Bug sweep.**
   - **Colour names.** Tinted near-blacks (deep navy) are never called black. Denim names are
     used only for denim pieces. A new Blue family covers mid and royal blues. Stored pieces are

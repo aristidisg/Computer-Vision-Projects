@@ -429,8 +429,8 @@
     <string name="wear_again">Wear it again</string>
     <string name="last_worn_days">Worn %1$d days ago</string>
     <!-- Saved outfits influence -->
-    <string name="saved_influence">Saved outfits shape suggestions</string>
-    <string name="saved_influence_body">Outfits close to the ones you saved or composed get a boost, and saving teaches your taste. Turn off to ignore them.</string>
+    <string name="saved_influence">Saved and composed outfits shape suggestions</string>
+    <string name="saved_influence_body">Outfits close to the ones you saved or built yourself get a boost in Today, the planner and the composer\'s Complete it, and saving teaches your taste. Turn off to ignore them.</string>
     <string name="x_like_saved">Close to outfits you saved.</string>
     <!-- Label check -->
     <string name="check_labels">Check labels</string>

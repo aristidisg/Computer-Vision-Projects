@@ -102,20 +102,46 @@ class LabelCheckViewModel @Inject constructor(
 
     init { scanPhotos() }
 
-    /** ML Kit category hints on each layer's photo, only when the user has hints switched on. */
+    /**
+     * ML Kit category hints on each layer's photo, only when the user has hints switched on.
+     * Results are cached per piece and edit time, so reopening the screen re-runs the model only
+     * for pieces that changed (it is the most battery-hungry thing this screen does).
+     */
     private fun scanPhotos() = viewModelScope.launch {
         if (!settings.current().categoryHints) return@launch
+        val cacheFile = java.io.File(app.filesDir, "label_hints.tsv")
+        val cache = withContext(Dispatchers.IO) { readHintCache(cacheFile) }.toMutableMap()
+        val layers = wardrobe.all().filter { it.subcategory.group == CategoryGroup.TOPS || it.subcategory.group == CategoryGroup.OUTERWEAR }
+        fun hints() = layers.mapNotNull { i -> cache[i.id]?.takeIf { it.first == i.updatedAtMillis }?.second?.let { i.id to it } }.toMap()
+        photoHints.value = hints()
+        val todo = layers.filter { cache[it.id]?.first != it.updatedAtMillis }
+        if (todo.isEmpty()) return@launch
         scanning.value = true
-        val out = HashMap<String, Subcategory>()
-        for (i in wardrobe.all().filter { it.subcategory.group == CategoryGroup.TOPS || it.subcategory.group == CategoryGroup.OUTERWEAR }) {
-            val file = images.resolve(i.photos.cutout ?: i.photos.original) ?: continue
-            val bmp = withContext(Dispatchers.IO) { BitmapFactory.decodeFile(file.path) } ?: continue
-            val hint = CategoryHints.suggest(ImageOps.scaleToFit(bmp, 512))
-                .firstOrNull { it.group == CategoryGroup.TOPS || it.group == CategoryGroup.OUTERWEAR }
-            if (hint != null) out[i.id] = hint
+        for (i in todo) {
+            val file = images.resolve(i.photos.cutout ?: i.photos.original)
+            val hint = if (file == null) null else withContext(Dispatchers.IO) {
+                // Decode at reduced size: the labeler only needs ~512 px, and cutouts are larger.
+                val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
+                BitmapFactory.decodeFile(file.path, opts)
+            }?.let { bmp ->
+                CategoryHints.suggest(ImageOps.scaleToFit(bmp, 512)).firstOrNull { it.group == CategoryGroup.TOPS || it.group == CategoryGroup.OUTERWEAR }
+            }
+            cache[i.id] = i.updatedAtMillis to hint
         }
-        photoHints.value = out
+        withContext(Dispatchers.IO) { writeHintCache(cacheFile, cache.filterKeys { id -> layers.any { it.id == id } }) }
+        photoHints.value = hints()
         scanning.value = false
+    }
+
+    private fun readHintCache(f: java.io.File): Map<String, Pair<Long, Subcategory?>> = runCatching {
+        f.readLines().mapNotNull { line ->
+            val p = line.split('\t')
+            if (p.size < 2) null else p[0] to ((p[1].toLongOrNull() ?: return@mapNotNull null) to p.getOrNull(2)?.let { n -> Subcategory.entries.firstOrNull { it.name == n } })
+        }.toMap()
+    }.getOrDefault(emptyMap())
+
+    private fun writeHintCache(f: java.io.File, m: Map<String, Pair<Long, Subcategory?>>) {
+        runCatching { f.writeText(m.entries.joinToString("\n") { (id, v) -> "$id\t${v.first}\t${v.second?.name ?: ""}" }) }
     }
 
     fun apply(s: LabelSuggestion, sub: Subcategory? = s.suggested) = viewModelScope.launch {

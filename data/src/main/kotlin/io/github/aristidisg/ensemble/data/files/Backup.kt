@@ -121,7 +121,7 @@ class Backup(
             }
         }
         val d = data ?: error("Not an Ensemble backup")
-        if (replace) db.clearAllTables()
+        if (replace) { db.clearAllTables(); feedback.invalidate() }
         db.withTransaction {
             db.items().upsertAll(d.items.map(Docs::item))
             db.outfits().upsertAll(d.outfits.map(Docs::outfit))
@@ -147,6 +147,7 @@ class Backup(
     /** "Delete all data" after a typed confirmation. */
     suspend fun deleteAll() = withContext(Dispatchers.IO) {
         db.clearAllTables()
+        feedback.invalidate()
         images.clear()
         settings.replace(Settings())
     }

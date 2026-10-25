@@ -79,6 +79,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.exifinterface)
+    // Installs the baseline profile (src/main/baseline-prof.txt) on sideloaded installs too.
+    implementation(libs.androidx.profileinstaller)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)

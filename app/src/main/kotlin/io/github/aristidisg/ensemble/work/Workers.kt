@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.hilt.work.HiltWorker
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -95,8 +96,15 @@ class AutoBackup @Inject constructor(
     }
 
     fun schedule() = WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-        "auto-backup", ExistingPeriodicWorkPolicy.UPDATE, PeriodicWorkRequestBuilder<BackupWorker>(7, TimeUnit.DAYS).build(),
+        "auto-backup", ExistingPeriodicWorkPolicy.UPDATE, request(),
     )
+
+    companion object {
+        /** Weekly, only while the battery isn't low and there is storage to write the zip. */
+        fun request() = PeriodicWorkRequestBuilder<BackupWorker>(7, TimeUnit.DAYS)
+            .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).setRequiresStorageNotLow(true).build())
+            .build()
+    }
 
     fun cancel() = WorkManager.getInstance(context).cancelUniqueWork("auto-backup")
 }
@@ -120,19 +128,24 @@ class Scheduler @Inject constructor(@ApplicationContext private val context: Con
         return Duration.between(now, next).toMinutes()
     }
 
-    suspend fun scheduleAll() {
+    /**
+     * [reschedule] = true after the user changes the times; app start keeps the existing
+     * schedule, so opening the app never shifts or restarts the daily jobs.
+     */
+    suspend fun scheduleAll(reschedule: Boolean = false) {
         val s = settings.current()
         val wm = WorkManager.getInstance(context)
+        val policy = if (reschedule) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP
         wm.enqueueUniquePeriodicWork(
-            "morning", ExistingPeriodicWorkPolicy.UPDATE,
+            "morning", policy,
             PeriodicWorkRequestBuilder<MorningWorker>(1, TimeUnit.DAYS).setInitialDelay(delayUntil(s.morningMinute), TimeUnit.MINUTES).build(),
         )
         wm.enqueueUniquePeriodicWork(
-            "checkin", ExistingPeriodicWorkPolicy.UPDATE,
+            "checkin", policy,
             PeriodicWorkRequestBuilder<CheckInWorker>(1, TimeUnit.DAYS).setInitialDelay(delayUntil(s.eveningMinute), TimeUnit.MINUTES).build(),
         )
         if (s.autoBackupUri != null) wm.enqueueUniquePeriodicWork(
-            "auto-backup", ExistingPeriodicWorkPolicy.KEEP, PeriodicWorkRequestBuilder<BackupWorker>(7, TimeUnit.DAYS).build(),
+            "auto-backup", ExistingPeriodicWorkPolicy.KEEP, AutoBackup.request(),
         )
     }
 }

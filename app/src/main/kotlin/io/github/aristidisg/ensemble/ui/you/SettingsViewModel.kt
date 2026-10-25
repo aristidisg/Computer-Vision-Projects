@@ -43,7 +43,7 @@ class SettingsViewModel @Inject constructor(
         feedback.rebuild(s.learningEpoch, LearningConfig.of(s))
     }
 
-    fun updateSchedule(t: (Settings) -> Settings) = viewModelScope.launch { repo.update(t); scheduler.scheduleAll() }
+    fun updateSchedule(t: (Settings) -> Settings) = viewModelScope.launch { repo.update(t); scheduler.scheduleAll(reschedule = true) }
 
     fun searchCity(q: String) = viewModelScope.launch { _cities.value = weather.search(q).getOrDefault(emptyList()) }
 

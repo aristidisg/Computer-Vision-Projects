@@ -152,3 +152,20 @@ Choices made where the spec left room, or where it was changed. Newest first.
   engine's English templates.
 - **"Seed demo wardrobe"** is available in release builds too (empty state and You → debug), so
   the app can be tried before photographing anything.
+
+### Speed and battery
+- **Deck first, weather second.** Today builds the deck from the cached forecast at once and
+  rebuilds only when a newer forecast arrives, instead of waiting for location and network.
+- **Location costs nothing most of the time.**
+  - A fresh cached forecast (under 3 h old) only checks the last-known location.
+  - A network fix is requested only when the cache is stale or on a manual refresh.
+  - GPS is never switched on.
+  - Reverse geocoding is cached per place.
+- **Daily jobs are scheduled with KEEP at app start** and re-scheduled (UPDATE) only when the
+  user changes the times. Before, every launch re-enqueued them. The weekly backup waits for
+  battery-not-low and storage-not-low.
+- **Check labels caches ML Kit hints** per piece and edit time, and decodes photos at half size.
+- **Baseline profile** (`app/src/main/baseline-prof.txt`, wildcard rules for our own code) plus
+  `androidx.profileinstaller` 1.4.1 (new dependency: the official Jetpack library that
+  installs the profile on sideloaded APKs, about 30 KB), so our code is compiled ahead of time
+  instead of running in the interpreter first.

@@ -135,7 +135,11 @@ fun OutfitsScreen(nav: NavHostController, vm: OutfitsViewModel = hiltViewModel()
                     WearAgainRow(s, nav)
                     OutfitGrid(s.saved, s, nav, stringResource(R.string.nothing_saved))
                 }
-                1 -> OutfitGrid(s.composed, s, nav, stringResource(R.string.composer_hint))
+                1 -> {
+                    // Your own compositions count as saved outfits: same switch, same influence.
+                    SwitchRow(stringResource(R.string.saved_influence), s.influence, vm::setInfluence, stringResource(R.string.saved_influence_body))
+                    OutfitGrid(s.composed, s, nav, stringResource(R.string.composer_hint))
+                }
                 2 -> Looks(s.looks, nav)
                 else -> History(s.history, s, nav)
             }

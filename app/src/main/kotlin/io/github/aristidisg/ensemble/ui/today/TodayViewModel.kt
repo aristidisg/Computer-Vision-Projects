@@ -77,10 +77,14 @@ class TodayViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val r = weatherService.refresh()
-            _state.update { it.copy(place = r.getOrNull()?.locationName, weatherError = r.exceptionOrNull()?.message) }
+            // Deck first, from the cached forecast: no waiting for location and network.
             val day = time.today()
+            val before = weatherService.cachedFetchMillis()
             selectScenario(studio.defaultScenarioId(day), day)
+            val r = weatherService.refresh()
+            _state.update { it.copy(place = r.getOrNull()?.locationName ?: it.place, weatherError = r.exceptionOrNull()?.message) }
+            // Rebuild only when a newer forecast actually arrived.
+            if (r.getOrNull()?.fetchedAtMillis?.let { it != before } == true) generate()
         }
         viewModelScope.launch {
             var ids: Set<String>? = null

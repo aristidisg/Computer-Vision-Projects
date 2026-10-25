@@ -85,7 +85,10 @@ class DataLayerTest {
         val incremental = repo.currentStats()
         repo.rebuild(0, cfg)
         assertEquals(incremental, repo.currentStats())
+        // The in-memory copy always equals what is stored.
+        assertEquals(repo.currentStats(), FeedbackRepository(db).currentStats())
         repo.hardReset()
+        assertEquals(FeedbackRepository(db).currentStats(), repo.currentStats())
         assertTrue(repo.events().isEmpty())
     }
 

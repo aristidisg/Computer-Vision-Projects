@@ -28,6 +28,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Insights
+import io.github.aristidisg.ensemble.ui.nav.InsightsRoute
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
@@ -100,6 +102,7 @@ fun WardrobeScreen(nav: NavHostController, vm: WardrobeViewModel = hiltViewModel
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.tab_wardrobe), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                IconButton(onClick = { nav.navigate(InsightsRoute) }) { Icon(Icons.Outlined.Insights, stringResource(R.string.insights)) }
                 Box {
                     var more by remember { mutableStateOf(false) }
                     IconButton(onClick = { more = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.more_actions)) }

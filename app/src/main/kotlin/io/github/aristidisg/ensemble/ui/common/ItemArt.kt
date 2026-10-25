@@ -31,6 +31,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.Slot
 import io.github.aristidisg.ensemble.ui.theme.LocalEnsembleColors
@@ -40,12 +42,14 @@ fun hexColor(hex: String): Color = runCatching { Color(android.graphics.Color.pa
 
 /** The item's cutout (or photo); without one, a category silhouette tinted with its colors. */
 @Composable
-fun ItemArt(item: Item, modifier: Modifier = Modifier, thumb: Boolean = true) {
+fun ItemArt(item: Item, modifier: Modifier = Modifier, thumb: Boolean = true, software: Boolean = false) {
     val ctx = LocalContext.current
     val path = (if (thumb) item.photos.thumb else null) ?: item.photos.display
     val file = remember(path) { path?.let { File(ctx.filesDir, it) }?.takeIf { it.exists() } }
     if (file != null) {
-        AsyncImage(model = file, contentDescription = item.name, modifier = modifier, contentScale = ContentScale.Fit)
+        // Software bitmaps when the picture is captured to an image (Shoot mode).
+        val model: Any = if (software) ImageRequest.Builder(ctx).data(file).allowHardware(false).build() else file
+        AsyncImage(model = model, contentDescription = item.name, modifier = modifier, contentScale = ContentScale.Fit)
     } else {
         Placeholder(item, modifier)
     }
@@ -102,7 +106,7 @@ fun silhouette(slot: Slot, sub: String, s: Size): Path = Path().apply {
 
 /** Outfit collage on a neutral studio-grey backdrop: layers on top, bottom, then shoes and accessories. */
 @Composable
-fun Collage(pieces: List<Pair<Item, Slot>>, modifier: Modifier = Modifier) {
+fun Collage(pieces: List<Pair<Item, Slot>>, modifier: Modifier = Modifier, software: Boolean = false) {
     val bySlot = pieces.groupBy({ it.second }, { it.first })
     val upper = listOfNotNull(bySlot[Slot.OUTER]?.first(), bySlot[Slot.MID]?.first(), bySlot[Slot.TOP]?.first())
     val acc = pieces.filter { !it.second.isCore }.map { it.first }
@@ -114,7 +118,7 @@ fun Collage(pieces: List<Pair<Item, Slot>>, modifier: Modifier = Modifier) {
                 upper.forEach { item ->
                     val under = hiddenTop && item == bySlot[Slot.TOP]?.first()
                     Box(Modifier.weight(if (under) 0.7f else 1f).fillMaxSize()) {
-                        ItemArt(item, Modifier.fillMaxSize().alpha(if (under) 0.45f else 1f))
+                        ItemArt(item, Modifier.fillMaxSize().alpha(if (under) 0.45f else 1f), software = software)
                         if (under) Text(
                             stringResource(R.string.worn_under), style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(6.dp))
@@ -124,11 +128,11 @@ fun Collage(pieces: List<Pair<Item, Slot>>, modifier: Modifier = Modifier) {
                 }
             }
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                bySlot[Slot.BOTTOM]?.first()?.let { ItemArt(it, Modifier.weight(1.4f).fillMaxSize()) }
+                bySlot[Slot.BOTTOM]?.first()?.let { ItemArt(it, Modifier.weight(1.4f).fillMaxSize(), software = software) }
                 Column(Modifier.weight(1f).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    bySlot[Slot.SHOES]?.first()?.let { ItemArt(it, Modifier.weight(1f).fillMaxWidth()) }
+                    bySlot[Slot.SHOES]?.first()?.let { ItemArt(it, Modifier.weight(1f).fillMaxWidth(), software = software) }
                     if (acc.isNotEmpty()) Row(Modifier.weight(0.7f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        acc.take(4).forEach { ItemArt(it, Modifier.weight(1f).aspectRatio(1f)) }
+                        acc.take(4).forEach { ItemArt(it, Modifier.weight(1f).aspectRatio(1f), software = software) }
                     }
                 }
             }

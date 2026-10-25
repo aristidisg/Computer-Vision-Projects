@@ -6,7 +6,7 @@ import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.Mood
 
 /** Score changes on top of the rule groups, with the lines that explain them. */
-data class Editorial(val bonus: Double, val lines: List<RuleResult>)
+data class Editorial(val bonus: Double, val lines: List<RuleResult>, val cover: Cover? = null)
 
 /**
  * The stylist's layer: the technique bonus (stronger when experimenting or in Vogue stylist
@@ -56,7 +56,9 @@ object EditorialRules {
                 lines += res("ACCENT", RuleGroup.COLOR, 0.2, 0.0, Explain.ACCENT_MISSING, "color" to a.label.lowercase())
             }
         }
-        return Editorial(bonus, lines)
+        // Vogue stylist: the editor's eye (formulas, proportion, texture, third piece, rule breaks).
+        val cover = if (ctx.options.vogue) CoverRules.read(look).also { bonus += it.second }.first else null
+        return Editorial(bonus, lines, cover)
     }
 
     /** Visible area share of [family] (pieces hidden under closed layers don't count). */

@@ -27,6 +27,8 @@ data class ScoredOutfit(
     val technique: Technique? = null,
     /** How to wear it (tuck, roll, cuff), at most two. */
     val tips: List<Tip> = emptyList(),
+    /** Vogue stylist: how the look reads on a cover (formula, rule break, cover lines). */
+    val cover: Cover? = null,
 ) {
     val matchPct: Int get() = (total * 100).roundToInt()
     val itemIds: List<String> get() = pieces.map { it.itemId }
@@ -114,7 +116,8 @@ object Scorer {
         CollectionRules.influence(look, ctx)?.let { (bonus, line) -> total += bonus; results += line }
         // The stylist's layer: technique, mood and accent colour (see EditorialRules).
         val technique = StylistRules.technique(look, ctx)
-        EditorialRules.apply(look, ctx, technique).let { e -> total += e.bonus; results += e.lines }
+        val editorial = EditorialRules.apply(look, ctx, technique)
+        total += editorial.bonus; results += editorial.lines
         // The seasons ticked on a piece: off-season core pieces cost Match (strongly, but not a
         // hard block, so a warm autumn day can still bring out linen if nothing else fits).
         val now = ctx.seasonsNow
@@ -149,6 +152,7 @@ object Scorer {
             newIdea = newIdea,
             technique = technique,
             tips = StylingTips.tips(look, ctx),
+            cover = editorial.cover,
         )
     }
 

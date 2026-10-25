@@ -10,6 +10,13 @@ import androidx.compose.ui.unit.sp
 import io.github.aristidisg.ensemble.ui.common.hexColor
 import io.github.aristidisg.ensemble.ui.common.techniqueBlurb
 import io.github.aristidisg.ensemble.ui.common.tipText
+import io.github.aristidisg.ensemble.ui.common.coverLineText
+import io.github.aristidisg.ensemble.ui.common.issueName
+import io.github.aristidisg.ensemble.engine.tables.Issue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
 import io.github.aristidisg.ensemble.ui.common.techniqueName
 import io.github.aristidisg.ensemble.ui.theme.HeroStyle
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -66,8 +73,10 @@ data class PieceActions(
 @Composable
 fun OutfitCard(
     card: ScoredOutfit, items: Map<String, Item>, onOpen: () -> Unit, actions: PieceActions, modifier: Modifier = Modifier,
-    /** Vogue stylist: a cover look, with the styling notes as cover lines. */
+    /** Vogue stylist: a cover look of [issue], with cover lines, and a Shoot button. */
     cover: Boolean = false,
+    issue: Issue? = null,
+    onShoot: (() -> Unit)? = null,
 ) {
     val placed = card.pieces.mapNotNull { p -> items[p.itemId]?.let { it to p.slot } }
     val palette = placed.mapNotNull { (it, _) -> it.colors.firstOrNull()?.let { c -> hexColor(c.hex) } }.distinct()
@@ -86,7 +95,11 @@ fun OutfitCard(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val over = if (cover) stringResource(R.string.cover_look) else card.harmony
+                        val over = when {
+                            cover && card.cover?.ruleBreak != null -> stringResource(R.string.the_rule_break)
+                            cover -> listOfNotNull(stringResource(R.string.cover_look), issue?.let { issueName(it) }).joinToString(" · ")
+                            else -> card.harmony
+                        }
                         Text(over.uppercase(), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.5.sp), color = if (cover) accent else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         if (card.newIdea) Text(
                             stringResource(R.string.new_idea), style = MaterialTheme.typography.labelSmall, color = LocalEnsembleColors.current.onAccent,
@@ -100,7 +113,12 @@ fun OutfitCard(
                     Text("${card.matchPct}%", style = MaterialTheme.typography.titleMedium, color = LocalEnsembleColors.current.onAccent)
                 }
             }
-            Collage(placed, Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp))
+            Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) {
+                Collage(placed, Modifier.fillMaxSize())
+                if (onShoot != null) FilledTonalIconButton(onClick = onShoot, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)) {
+                    Icon(Icons.Outlined.PhotoCamera, stringResource(R.string.shoot))
+                }
+            }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 palette.take(6).forEach { c ->
                     Box(Modifier.size(16.dp).clip(CircleShape).background(c).border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape))
@@ -113,8 +131,12 @@ fun OutfitCard(
             if (!cover) card.why.firstOrNull { it.id != "STYLE" }?.let {
                 Text(explain(it), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             }
-            // How to wear it: one note on a normal card, both as cover lines on a cover look.
-            card.tips.take(if (cover) 2 else 1).forEach { t ->
+            // Cover looks: the editor's cover lines first, then how to wear it; a normal card gets one tip.
+            val notes = if (cover) card.cover?.notes.orEmpty().take(2) else emptyList()
+            notes.forEach { n ->
+                Text("— " + coverLineText(n), style = MaterialTheme.typography.labelMedium, color = accent, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            }
+            card.tips.take((if (cover) 2 else 1) - notes.size).forEach { t ->
                 Text("— " + tipText(t), style = MaterialTheme.typography.labelMedium, color = accent, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

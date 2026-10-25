@@ -40,6 +40,9 @@ data class PreferenceStats(
     /** Learning events (decay applied when read) used for the learned-weight ramp. */
     val eventWeight: Double = 0.0,
     val lastEventDay: Long = 0,
+    /** The same ramp for editorial (Vogue stylist) feedback, kept apart from the everyday one. */
+    val editorialWeight: Double = 0.0,
+    val lastEditorialDay: Long = 0,
 ) {
     companion object {
         const val SEP = "␟"
@@ -52,9 +55,12 @@ object Learning {
 
     fun decay(ageDays: Double, halfLife: Double): Double = if (ageDays <= 0) 1.0 else 0.5.pow(ageDays / halfLife)
 
-    private fun contexts(e: FeedbackEvent): List<Pair<String, Double>> = listOf(
-        "GLOBAL" to 1.0, "SCN:${e.context.scenarioId}" to 1.0, "SEASON:${e.context.season.name}" to 0.5,
-    )
+    /** Context key of editorial (Vogue stylist) feedback: read only by Vogue decks. */
+    const val EDITORIAL = "EDITORIAL"
+
+    private fun contexts(e: FeedbackEvent): List<Pair<String, Double>> =
+        if (e.context.editorial) listOf(EDITORIAL to 1.0)
+        else listOf("GLOBAL" to 1.0, "SCN:${e.context.scenarioId}" to 1.0, "SEASON:${e.context.season.name}" to 0.5)
 
     private fun add(
         stats: MutableMap<String, PreferenceStat>, feature: String, ctxKey: String, weight: Double, day: Long, cfg: LearningConfig,
@@ -100,13 +106,14 @@ object Learning {
                     } else {
                         val named = f.filter { k -> event.reasons.any { Features.namedBy(it, k) } }
                         addAll(s, event, named.associateWith { -1.0 }, cfg)
-                        out = applyReasonSideEffects(out, event)
+                        // Warmth, formality and boldness nudges belong to the everyday deck only.
+                        if (!event.context.editorial) out = applyReasonSideEffects(out, event)
                     }
                 }
             }
             FeedbackType.PIECE_UP, FeedbackType.PIECE_DOWN -> {
                 val sign = if (event.type == FeedbackType.PIECE_UP) 1.0 else -1.0
-                val scn = "SCN:${event.context.scenarioId}"
+                val scn = if (event.context.editorial) EDITORIAL else "SCN:${event.context.scenarioId}"
                 event.targetItemId?.let { add(s, "item:$it", scn, 1.5 * sign, day, cfg) }
                 for (p in event.targetFeatures) add(s, p, scn, 0.3 * sign, day, cfg)
             }
@@ -127,6 +134,10 @@ object Learning {
                 event.outfitSignature?.let { out = out.copy(blocked = out.blocked + it) }
                 addAll(s, event, (event.targetFeatures.ifEmpty { f.filter { it.startsWith("pair:") } }).associateWith { -2.0 }, cfg)
             }
+        }
+        if (learned && event.context.editorial) {
+            val ramp = out.editorialWeight * decay((day - out.lastEditorialDay).toDouble(), cfg.halfLifeDays) + 1.0
+            return out.copy(stats = s, editorialWeight = ramp, lastEditorialDay = maxOf(day, out.lastEditorialDay))
         }
         val ramp = if (learned) out.eventWeight * decay((day - out.lastEventDay).toDouble(), cfg.halfLifeDays) + 1.0 else out.eventWeight
         return out.copy(stats = s, eventWeight = ramp, lastEventDay = if (learned) maxOf(day, out.lastEventDay) else out.lastEventDay)

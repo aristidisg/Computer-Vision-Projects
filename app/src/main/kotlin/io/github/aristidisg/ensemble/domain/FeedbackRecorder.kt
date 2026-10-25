@@ -50,6 +50,8 @@ class FeedbackRecorder @Inject constructor(
 
     private fun snapshot(ctx: EngineContext) = ContextSnapshot(
         ctx.scenario.id, ctx.season, WarmthTable.label(ctx.weather.feelsMid), ctx.weekday, ctx.weather.feelsMin, ctx.weather.feelsMax,
+        // Swipes on Vogue stylist cover looks train the editorial taste only.
+        editorial = ctx.options.vogue,
     )
 
     private suspend fun event(

@@ -1,5 +1,13 @@
 package io.github.aristidisg.ensemble.ui.you
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import io.github.aristidisg.ensemble.ui.theme.HeroStyle
+import io.github.aristidisg.ensemble.ui.theme.LocalEnsembleColors
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -39,13 +47,21 @@ fun YouScreen(nav: NavHostController, vm: SettingsViewModel = hiltViewModel()) {
     val s by vm.settings.collectAsStateWithLifecycle()
     Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Text(stringResource(R.string.tab_you), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 12.dp))
+        // Insights up front as a bold card: it was easy to miss as one row among many.
+        val accent = LocalEnsembleColors.current.accent
+        Column(
+            Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(20.dp)).background(accent)
+                .clickable { nav.navigate(InsightsRoute) }.padding(18.dp),
+        ) {
+            Text(stringResource(R.string.insights_hero), style = HeroStyle, color = LocalEnsembleColors.current.onAccent)
+            Text(stringResource(R.string.insights_hero_body), style = MaterialTheme.typography.bodyMedium, color = LocalEnsembleColors.current.onAccent)
+        }
         NavRow(stringResource(R.string.style_profile), "${stringResource(R.string.boldness)} ${(s.boldness * 100).toInt()}% · ${s.strictness.label}") { nav.navigate(StyleProfileRoute) }
         NavRow(stringResource(R.string.taste_profile)) { nav.navigate(TasteRoute) }
         NavRow(stringResource(R.string.rules_weights)) { nav.navigate(RulesRoute) }
         NavRow(stringResource(R.string.custom_rules)) { nav.navigate(CustomRuleRoute()) }
         NavRow(stringResource(R.string.scenarios)) { nav.navigate(ScenariosRoute) }
         NavRow(stringResource(R.string.personal_color), if (s.personalColor.enabled) stringResource(R.string.on) else stringResource(R.string.off)) { nav.navigate(PersonalColorRoute) }
-        NavRow(stringResource(R.string.insights)) { nav.navigate(InsightsRoute) }
         val toBuy = s.shoppingList.count { !it.done }
         NavRow(stringResource(R.string.shopping_list), if (toBuy > 0) stringResource(R.string.to_buy_n, toBuy) else null) { nav.navigate(ShoppingListRoute) }
         NavRow(stringResource(R.string.rotation)) { nav.navigate(RotationRoute) }

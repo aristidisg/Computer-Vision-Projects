@@ -268,4 +268,17 @@ Choices made where the spec left room, or where it was changed. Newest first.
   units of an average-weight outfit). Rescued = a partner piece in fewer than 3 good outfits now.
 - **Weekly variety score** = 100 × (0.6 × distinct clothes / clothes worn + 0.4 × colour families
   / min(6, wears)). Shoes and accessories don't count.
+- **Vogue stylist cover rules** (CoverRules, only with the Vogue option): formula +0.05 (every
+  part visible on ≥ 4 % of the outfit), volume against a clean line +0.03, slim on slim +0.02,
+  baggy on baggy −0.04, texture +0.015 per extra texture (max 2), third piece +0.03, rule break
+  +0.05 to offset the rule it breaks. Rule-break looks are kept out of the themed cards; the best
+  one is dealt fourth.
+- **Issues** need at least 4 matching looks; the issue is picked by (day + regenerate count)
+  among the feasible ones, so "More" moves to the next theme.
+- **Editorial taste**: feedback events carry `editorial`; they count only in an EDITORIAL
+  context (its own ramp), skip warmth/formality/boldness side effects, and Vogue decks blend
+  EDITORIAL 0.6, global 0.25, scenario 0.15. Old events default to everyday.
+- **Shoot mode** renders the cover with a graphics layer (software bitmaps for photos) and
+  writes a PNG with MediaStore on Android 10+, no storage permission; on 8-9 it opens the share
+  sheet through the existing FileProvider instead of asking for storage permission.
 

@@ -38,7 +38,7 @@ object StylistRules {
     /** Enough tint for the hue to read (camel, brown, olive, navy). */
     private const val TINT_C = 0.03
 
-    private val textureOf: Map<Material, String> = mapOf(
+    internal val textureOf: Map<Material, String> = mapOf(
         Material.KNIT to "knit", Material.WOOL to "knit", Material.MERINO to "knit", Material.CASHMERE to "knit",
         Material.DENIM to "denim", Material.LEATHER to "leather", Material.SUEDE to "suede",
         Material.CORDUROY to "cord", Material.TWEED to "tweed", Material.FLANNEL to "flannel",
@@ -49,7 +49,7 @@ object StylistRules {
     private fun isNeutral(c: ColorInfo) = c.neutralness >= 0.6 || c.c < NEUTRAL_C
 
     /** Visible core pieces (a tee under a hoodie doesn't count) with their dominant color. */
-    private fun visible(look: Look): List<Pair<Item, ColorInfo>> =
+    internal fun visible(look: Look): List<Pair<Item, ColorInfo>> =
         look.core.filter { it.slot != Slot.SHOES && (look.pieceArea[it.item.id] ?: 0.0) >= 0.06 }
             .mapNotNull { p -> look.dominant(p.item)?.let { p.item to it } }
 

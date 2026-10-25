@@ -281,4 +281,10 @@ Choices made where the spec left room, or where it was changed. Newest first.
 - **Shoot mode** renders the cover with a graphics layer (software bitmaps for photos) and
   writes a PNG with MediaStore on Android 10+, no storage permission; on 8-9 it opens the share
   sheet through the existing FileProvider instead of asking for storage permission.
+- **Week planner picks** (WeekPicker): from the best 80 candidates a day (narrowed like the
+  deck), value = Match − 0.15 × share of core pieces with an earlier day − 0.04 per day with
+  the same top (or trouser) colour + 0.04 for a new technique (− 0.03 per repeat) − 0.3 for
+  an outfit in the plan being replaced − 0.05 if shown on Today recently + 0.06 for an unused
+  signature piece + a seeded nudge up to 0.03 (seed: week start, "week", replan count).
+  Then accessories, as on Today. Vogue week is per session, like Today's Vogue stylist.
 

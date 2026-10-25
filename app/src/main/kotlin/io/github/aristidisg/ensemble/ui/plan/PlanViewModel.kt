@@ -27,9 +27,16 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import io.github.aristidisg.ensemble.engine.DeckOptions
+import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
+import io.github.aristidisg.ensemble.model.Outfit
 import kotlin.math.abs
 
-data class PlanDay(val epochDay: Long, val scenario: Scenario, val weather: WindowWeather, val fromForecast: Boolean, val plan: DayPlan?)
+/** One day of the week; [scored] is its planned outfit read today (technique, tips, cover lines). */
+data class PlanDay(
+    val epochDay: Long, val scenario: Scenario, val weather: WindowWeather, val fromForecast: Boolean, val plan: DayPlan?,
+    val scored: ScoredOutfit? = null,
+)
 
 data class PlanState(
     val days: List<PlanDay> = emptyList(),
@@ -41,6 +48,8 @@ data class PlanState(
     val planning: Boolean = false,
     val swapFrom: Long? = null,
     val replanned: Boolean = false,
+    /** Vogue week: every day a cover look (this session only, like Today's Vogue stylist). */
+    val vogue: Boolean = false,
 )
 
 @HiltViewModel
@@ -67,11 +76,18 @@ class PlanViewModel @Inject constructor(
     fun refresh(checkReplan: Boolean = false): Job = viewModelScope.launch {
         val today = time.today()
         val stored = plans.allPlans().associateBy { it.epochDay }
-        val days = (0 until 7).map { d ->
+        val raw = (0 until 7).map { d ->
             val day = today + d
             val sc = studio.scenario(stored[day]?.scenarioId ?: studio.defaultScenarioId(day))
             val w = studio.dayWeather(day, sc)
             PlanDay(day, sc, w.window, w.fromForecast, stored[day])
+        }
+        // Read each planned outfit with that day's occasion and weather, for its headline and tips.
+        val base = raw.firstOrNull()?.let { studio.context(today, it.scenario).copy(options = DeckOptions(vogue = _s.value.vogue)) }
+        val days = raw.map { d ->
+            val pieces = d.plan?.pieces.orEmpty()
+            if (base == null || pieces.isEmpty()) d
+            else d.copy(scored = withContext(Dispatchers.Default) { studio.engine.score(pieces, base.copy(scenario = d.scenario, weather = d.weather, epochDay = d.epochDay)) })
         }
         _s.update { it.copy(days = days, scenarios = studio.scenarios()) }
         if (checkReplan) {
@@ -121,12 +137,25 @@ class PlanViewModel @Inject constructor(
         refresh()
     }
 
+    private var replans = 0
+
+    /** Vogue week on/off: a new week straight away. */
+    fun setVogue(on: Boolean) { _s.update { it.copy(vogue = on) }; autoPlan() }
+
+    /**
+     * Plans (or replans) the week: each press deals a new week, steering away from the outfits
+     * currently planned on unlocked days.
+     */
     fun autoPlan(): Job = viewModelScope.launch {
         _s.update { it.copy(planning = true) }
         val s = _s.value
-        val base = studio.context(time.today(), s.days.firstOrNull()?.scenario ?: studio.scenario("casual"))
+        val base = studio.context(time.today(), s.days.firstOrNull()?.scenario ?: studio.scenario("casual"), editorial = s.vogue)
+            .copy(options = DeckOptions(vogue = s.vogue))
         val inputs = s.days.map { d -> DayContext(d.epochDay, d.scenario, d.weather, d.plan?.takeIf { it.locked && it.pieces.isNotEmpty() }?.pieces) }
-        val plan = withContext(Dispatchers.Default) { WeekPlanner().plan(inputs, base, base.items.values.toList()) }
+        val avoid = s.days.mapNotNull { d -> d.plan?.takeIf { !it.locked }?.pieces?.filter { it.slot.isCore }?.takeIf { it.isNotEmpty() } }
+            .map { p -> Outfit.signatureOf(p.map { it.itemId }) }.toSet()
+        val round = ++replans
+        val plan = withContext(Dispatchers.Default) { WeekPlanner().plan(inputs, base, base.items.values.toList(), round, avoid) }
         for (pd in plan.days) {
             val o = pd.outfit ?: continue
             plans.savePlan(DayPlan(pd.day.epochDay, pd.day.scenario.id, o.pieces, locked = pd.day.locked != null,

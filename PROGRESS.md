@@ -121,6 +121,12 @@ Actions is the build machine (see DECISIONS.md).
   - Editorial taste: swipes on cover looks train a separate profile that only Vogue decks
     read; everyday warmth, formality and boldness nudges are untouched.
   - Insights is a bold card at the top of You and an icon on Wardrobe.
+- [x] **A week plan with spark.**
+  - Each day is chosen for the week's variety (no third blue top or grey trousers, techniques
+    mixed, pieces not repeated), finished with accessories, with signature pieces given a day.
+  - Accent, fresh pairs and the mood apply as on Today; "✦ Vogue week" plans cover looks.
+  - "Replan week" deals a new week every press, steering away from the current plan.
+  - Each day shows its technique and a styling note or cover line.
 - [x] **Fresh outfits, experiment, colours, layers.**
   - Outfits shown in the last 3 days are held back.
   - ✦ Experiment mode.
@@ -176,7 +182,7 @@ Actions is the build machine (see DECISIONS.md).
 
 ## Tests
 
-- :engine — 174 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
+- :engine — 179 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,

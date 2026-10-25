@@ -620,4 +620,6 @@
     <string name="shoot_failed">Couldn\'t save the image</string>
     <string name="insights_hero">Insights</string>
     <string name="insights_hero_body">Your week, your palette, what to buy next and what you never wear.</string>
+    <string name="replan_week">Replan week</string>
+    <string name="vogue_week">✦ Vogue week</string>
 </resources>

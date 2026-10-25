@@ -36,6 +36,7 @@ import io.github.aristidisg.ensemble.engine.color.ColorTables
 import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.Mood
 import io.github.aristidisg.ensemble.ui.common.hexColor
+import io.github.aristidisg.ensemble.ui.common.issueName
 import io.github.aristidisg.ensemble.ui.common.moodName
 import io.github.aristidisg.ensemble.ui.theme.LocalEnsembleColors
 
@@ -49,7 +50,7 @@ fun TodayChips(s: TodayState, vm: TodayViewModel, modifier: Modifier = Modifier)
         if (s.vogue) Button(
             onClick = { vm.setVogue(false) },
             colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = LocalEnsembleColors.current.onAccent),
-        ) { Text(stringResource(R.string.vogue_on)) }
+        ) { Text(s.issue?.let { stringResource(R.string.vogue_issue, issueName(it)) } ?: stringResource(R.string.vogue_on)) }
         else OutlinedButton(onClick = { vm.setVogue(true) }) { Text(stringResource(R.string.vogue_stylist), color = accent) }
         s.scenarios.forEach { sc ->
             FilterChip(selected = sc.id == s.scenario?.id, onClick = { vm.selectScenario(sc.id) }, label = { Text(sc.name) })

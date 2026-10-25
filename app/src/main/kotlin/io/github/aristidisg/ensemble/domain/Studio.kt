@@ -91,14 +91,14 @@ class Studio @Inject constructor(
      */
     suspend fun context(
         epochDay: Long, scenario: Scenario, weatherOverride: WindowWeather? = null, settingsOverride: Settings? = null,
-        includeToday: Boolean = false,
+        includeToday: Boolean = false, editorial: Boolean = false,
     ): EngineContext =
         withContext(Dispatchers.Default) {
             val s = settingsOverride ?: settingsRepo.current()
             val items = wardrobe.all()
             val stats = feedback.currentStats()
             val cfg = LearningConfig.of(s)
-            val prefs = PreferenceSnapshot.of(stats, scenario.id, EngineContext.seasonOf(epochDay), epochDay, cfg, s.trustMyTaste)
+            val prefs = PreferenceSnapshot.of(stats, scenario.id, EngineContext.seasonOf(epochDay), epochDay, cfg, s.trustMyTaste, editorial)
             val saved = outfits.all()
             val soon = plans.allPlans().filter { it.epochDay in (epochDay + 1)..(epochDay + 3) }.flatMap { p -> p.pieces.map { it.itemId } }.toSet()
             val logged = db.cache().recentDecks(DECK_LOG_SIZE)
@@ -149,7 +149,8 @@ class Studio @Inject constructor(
     ): Pair<EngineContext, SuggestionDeck> = withContext(Dispatchers.Default) {
         val base = settingsRepo.current()
         val s = base.copy(boldness = (base.boldness + boldnessShift).coerceIn(0.0, 1.0))
-        val ctx = context(epochDay, scenario, weatherOverride, s, includeToday = regenerate > 0).copy(options = options)
+        // Vogue stylist decks read the editorial taste (cover-look swipes) first.
+        val ctx = context(epochDay, scenario, weatherOverride, s, includeToday = regenerate > 0, editorial = options.vogue).copy(options = options)
         val items = ctx.items.values.toList()
         val version = items.maxOfOrNull { it.updatedAtMillis } ?: 0L
         val deck = engine.generate(ctx, items, SuggestionRequest(if (options.vogue) DeckPicks.VOGUE_DECK else s.deckSize, locked, regenerate, version + items.size))

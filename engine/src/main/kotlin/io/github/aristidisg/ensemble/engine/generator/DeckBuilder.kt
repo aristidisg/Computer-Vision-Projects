@@ -2,7 +2,9 @@ package io.github.aristidisg.ensemble.engine.generator
 
 import io.github.aristidisg.ensemble.engine.EngineContext
 import io.github.aristidisg.ensemble.engine.SeededRandom
+import io.github.aristidisg.ensemble.engine.rules.CoverRules
 import io.github.aristidisg.ensemble.engine.rules.HardConstraints
+import io.github.aristidisg.ensemble.engine.tables.Issue
 import io.github.aristidisg.ensemble.engine.rules.Look
 import io.github.aristidisg.ensemble.engine.rules.Placed
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
@@ -20,7 +22,8 @@ data class SuggestionRequest(
     val wardrobeVersion: Long = 0,
 )
 
-data class SuggestionDeck(val cards: List<ScoredOutfit>, val candidateCount: Int)
+/** A deck; [issue] is the Vogue stylist theme it was built around, if any. */
+data class SuggestionDeck(val cards: List<ScoredOutfit>, val candidateCount: Int, val issue: Issue? = null)
 
 /** Deck assembly (SPEC 6 steps 6-10): accessories pass, MMR diversity, exploration, determinism. */
 object DeckBuilder {
@@ -36,29 +39,35 @@ object DeckBuilder {
         val all = gen.candidates(wardrobe, coreLocked)
         if (all.isEmpty()) return SuggestionDeck(emptyList(), 0)
         val focused = DeckPicks.focus(all, ctx, req.deckSize)
-        val candidates = DeckPicks.freshFirst(focused, ctx, req.deckSize)
+        // Vogue stylist decks are all cover looks: no new-idea or turn cards, one issue (theme)
+        // they all share, and at most one deliberate rule break.
+        val vogue = ctx.options.vogue
+        val issue = if (vogue) CoverRules.issue(focused, ctx, req.regenerateCount) else null
+        val breakCard = if (vogue) DeckPicks.ruleBreak(focused, ctx) else emptyList()
+        val themed = if (!vogue) focused else focused.filter { it.cover?.ruleBreak == null && (issue == null || CoverRules.matches(issue, it)) }.ifEmpty { focused }
+        val candidates = DeckPicks.freshFirst(themed, ctx, req.deckSize)
         val rng = SeededRandom(seed xor 0x5DEECE66DL)
         val byId = wardrobe.associateBy { it.id }
-        // Vogue stylist decks are all cover looks: no new-idea or turn cards.
-        val vogue = ctx.options.vogue
         val nExplore = if (ctx.explorationRate <= 0 || vogue) 0 else (req.deckSize * ctx.explorationRate).toInt()
         // Turns need history: without past decks there is no "least shown" yet.
         val nTurn = if (req.deckSize >= 8 && coreLocked.isEmpty() && ctx.recentDeckCount > 0 && !vogue) DeckPicks.TURN_CARDS else 0
         // Turn cards are picked first, so the caps they use count against the rest of the deck.
         val turns = DeckPicks.turns(candidates, emptyList(), nTurn, ctx, req.deckSize)
-        val signature = DeckPicks.signature(focused, turns, ctx, req)
+        val signature = DeckPicks.signature(focused, turns + breakCard, ctx, req)
         // Experiment weighs variety more against score.
         val lambda = if (ctx.settings.experimentMode) cfg.mmrLambda - 0.15 else cfg.mmrLambda
-        val main = mmr(candidates, req.deckSize - nExplore - turns.size - signature.size, ctx, byId, lambda, rng, req.deckSize, turns + signature)
-        val explore = DeckPicks.explore(candidates, main + turns + signature, nExplore, ctx)
+        val special = turns + signature + breakCard
+        val main = mmr(candidates, req.deckSize - nExplore - special.size, ctx, byId, lambda, rng, req.deckSize, special)
+        val explore = DeckPicks.explore(candidates, main + special, nExplore, ctx)
         // Accessorizing rescores a card, so a line saying why the card is here is put back afterwards.
         fun acc(o: ScoredOutfit): ScoredOutfit {
             val a = accessorize(o, ctx, wardrobe, req.locked, gen.pairs)
             val pin = o.why.firstOrNull()?.takeIf { it.id in DeckPicks.PINNED } ?: return a
             return a.copy(why = listOf(pin) + a.why.filter { it.id != pin.id }.take(2))
         }
-        val deck = DeckPicks.interleave(DeckPicks.withInserts(main.map(::acc), turns.map(::acc), signature.map(::acc)), explore.map(::acc))
-        return SuggestionDeck(deck, candidates.size)
+        val withBreak = main.map(::acc).toMutableList().also { l -> breakCard.firstOrNull()?.let { l.add(minOf(3, l.size), acc(it)) } }
+        val deck = DeckPicks.interleave(DeckPicks.withInserts(withBreak, turns.map(::acc), signature.map(::acc)), explore.map(::acc))
+        return SuggestionDeck(deck, candidates.size, issue)
     }
 
     /** Step 6: greedy best-improvement accessories within the scenario's budget, honoring C10/C11/AC rules. */

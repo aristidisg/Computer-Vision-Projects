@@ -60,6 +60,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import io.github.aristidisg.ensemble.R
+import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.model.WhyNot
 import io.github.aristidisg.ensemble.ui.common.EmptyState
 import io.github.aristidisg.ensemble.ui.nav.ItemDetailRoute
@@ -78,6 +79,7 @@ fun TodayScreen(nav: NavHostController, vm: TodayViewModel = hiltViewModel()) {
     var datePicker by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf(false) }
     var dayMenu by remember { mutableStateOf(false) }
+    var shoot by remember { mutableStateOf<ScoredOutfit?>(null) }
     val wearMsg = stringResource(R.string.logged_wear)
     LaunchedEffect(s.message) { if (s.message == "wear") { snack.showSnackbar(wearMsg); vm.consumeMessage() } }
 
@@ -115,7 +117,7 @@ fun TodayScreen(nav: NavHostController, vm: TodayViewModel = hiltViewModel()) {
                     else -> SwipeDeck(s.cards, onSwipe = vm::swipe, modifier = Modifier.fillMaxSize()) { card ->
                         val sc = s.scenario
                         OutfitCard(
-                            card, s.items, cover = s.vogue,
+                            card, s.items, cover = s.vogue, issue = s.issue, onShoot = if (s.vogue) { { shoot = card } } else null,
                             onOpen = { if (sc != null) nav.navigate(OutfitDetailRoute(PiecesArg.encode(card.pieces), sc.id, s.epochDay)) },
                             actions = PieceActions(
                                 like = { vm.pieceThumb(card, it, true) },
@@ -150,6 +152,7 @@ fun TodayScreen(nav: NavHostController, vm: TodayViewModel = hiltViewModel()) {
             dismissButton = { TextButton(onClick = { datePicker = false }) { Text(stringResource(R.string.cancel)) } },
         ) { DatePicker(state) }
     }
+    shoot?.let { ShootDialog(it, s.items, s.issue, s.epochDay) { shoot = null } }
     if (manual) ManualWeatherDialog(onDismiss = { manual = false }, onClear = { vm.clearManualWeather(); manual = false }) { a, b -> vm.setManualWeather(a, b); manual = false }
 }
 

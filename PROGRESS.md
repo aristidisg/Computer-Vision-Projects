@@ -108,6 +108,25 @@ Actions is the build machine (see DECISIONS.md).
     what each pairs with, which forgotten pieces it rescues and which techniques it opens up.
   - Lookbook (Outfits → Lookbook): saved and composed outfits as full-screen editorial pages.
   - New app icon: ivory monogram and vermilion spark on ink.
+- [x] **Vogue stylist, editor's eye.**
+  - Issues: each Vogue deck runs one theme (The Tonal Issue, One Bold Thing, Tailoring Off
+    Duty, All Black Everything, Texture Study, Colour Block Party, The Formula Issue, Seoul
+    Layers, Light & Dark), rotated by day and "More" among those the wardrobe can fill.
+  - Cover rules: 12 colour formulas, proportion (volume against a clean line, slim on slim,
+    no baggy on baggy), texture contrast, a finishing third piece (open layer, scarf, hat).
+  - One deliberate rule break per issue (navy with black, double denim, brown with black,
+    sneakers with tailoring), named with how to pull it off.
+  - Cover lines on each card say why it works; Shoot mode saves the look as a magazine cover
+    image (Pictures/Ensemble; the share sheet on Android 8-9).
+  - Editorial taste: swipes on cover looks train a separate profile that only Vogue decks
+    read; everyday warmth, formality and boldness nudges are untouched.
+  - Insights is a bold card at the top of You and an icon on Wardrobe.
+- [x] **A week plan with spark.**
+  - Each day is chosen for the week's variety (no third blue top or grey trousers, techniques
+    mixed, pieces not repeated), finished with accessories, with signature pieces given a day.
+  - Accent, fresh pairs and the mood apply as on Today; "✦ Vogue week" plans cover looks.
+  - "Replan week" deals a new week every press, steering away from the current plan.
+  - Each day shows its technique and a styling note or cover line.
 - [x] **Fresh outfits, experiment, colours, layers.**
   - Outfits shown in the last 3 days are held back.
   - ✦ Experiment mode.
@@ -163,7 +182,7 @@ Actions is the build machine (see DECISIONS.md).
 
 ## Tests
 
-- :engine — 163 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
+- :engine — 179 tests (including a two-week rotation simulation) (colour edits and naming, seasonal swap, wear again, shopping list, clashes, rotation, collection influence, label check and hand-set defaults included): color conversions against reference values, artist-hue anchors,
   nearest family for every family, k-means determinism, harmony templates, every rule firing
   and not firing, learning (determinism, decay, reason routing, scenario isolation, ramp,
   rebuild = incremental), generator invariants over seeded random cases, planner, packing,

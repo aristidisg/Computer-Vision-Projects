@@ -2,6 +2,9 @@ package io.github.aristidisg.ensemble.engine.planner
 
 import io.github.aristidisg.ensemble.engine.EngineContext
 import io.github.aristidisg.ensemble.engine.OutfitEngine
+import io.github.aristidisg.ensemble.engine.SeededRandom
+import io.github.aristidisg.ensemble.engine.generator.DeckBuilder
+import io.github.aristidisg.ensemble.engine.generator.DeckPicks
 import io.github.aristidisg.ensemble.engine.WearHistory
 import io.github.aristidisg.ensemble.engine.generator.GeneratorConfig
 import io.github.aristidisg.ensemble.engine.rules.HardConstraints
@@ -31,16 +34,24 @@ data class WeekPlan(val days: List<PlannedDay>, val conflicts: List<String>) {
 }
 
 /**
- * Weekly planner (SPEC 8.3): greedy in date order under rotation, cooldowns, shoe rest days and a
- * laundry projection, then one improvement pass that swaps days whenever the total score rises.
+ * Weekly planner (SPEC 8.3): in date order under rotation, cooldowns, shoe rest days and a
+ * laundry projection, each day picked for the week's variety (WeekPicker) from candidates
+ * narrowed like the Today deck (accent, Vogue, fresh pairs), then finished with accessories;
+ * one improvement pass swaps days whenever the total score rises.
  */
 class WeekPlanner(private val engine: OutfitEngine = OutfitEngine(GeneratorConfig(beamWidth = 60, candidatesPerStep = 20))) {
 
-    fun plan(days: List<DayContext>, base: EngineContext, wardrobe: List<Item>): WeekPlan {
+    /**
+     * [regenerate] changes the seed (each "Replan" deals a new week); [avoid] holds the core
+     * signatures of the plan being replaced, which the new one steers away from.
+     */
+    fun plan(days: List<DayContext>, base: EngineContext, wardrobe: List<Item>, regenerate: Int = 0, avoid: Set<String> = emptySet()): WeekPlan {
         val history = base.history.logs.toMutableList()
         val wearCounts = HashMap<String, Int>()
         val planned = ArrayList<PlannedDay>()
-        for (d in days.sortedBy { it.epochDay }) {
+        val sorted = days.sortedBy { it.epochDay }
+        val picker = WeekPicker(SeededRandom.seedOf(sorted.firstOrNull()?.epochDay ?: 0L, "week", regenerate), avoid)
+        for (d in sorted) {
             // Laundry projection: pieces that hit their wash threshold during the week drop out.
             val projected = wardrobe.map { item ->
                 val extra = wearCounts[item.id] ?: 0
@@ -48,9 +59,12 @@ class WeekPlanner(private val engine: OutfitEngine = OutfitEngine(GeneratorConfi
                 if (extra > 0 && l.atThreshold && item.laundry.wearsBeforeWash > 0) item.copy(laundry = l, status = ItemStatus.LAUNDRY) else item.copy(laundry = l)
             }
             val ctx = contextFor(base, d, history, projected)
-            val outfit = d.locked?.let { engine.score(it, ctx) }
-                ?: engine.candidates(ctx.copy(settings = ctx.settings.copy(strictRotation = true)), projected).firstOrNull()
-                ?: engine.candidates(ctx, projected).firstOrNull()
+            val week = planned.mapNotNull { it.outfit }
+            val outfit = d.locked?.let { engine.score(it, ctx) } ?: run {
+                val strict = DeckPicks.focus(engine.candidates(ctx.copy(settings = ctx.settings.copy(strictRotation = true)), projected), ctx, 7)
+                val pool = strict.ifEmpty { DeckPicks.focus(engine.candidates(ctx, projected), ctx, 7) }
+                picker.choose(pool, week, ctx)?.let { DeckBuilder.accessorize(it, ctx, projected) }
+            }
             planned += PlannedDay(d, outfit)
             if (outfit != null) {
                 history += WearLog("plan-${d.epochDay}", d.epochDay, outfit.signature, outfit.pieces, d.scenario.id, d.weather)

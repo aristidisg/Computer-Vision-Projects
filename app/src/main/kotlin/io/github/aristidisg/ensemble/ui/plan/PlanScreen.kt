@@ -43,6 +43,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import io.github.aristidisg.ensemble.R
 import io.github.aristidisg.ensemble.ui.common.Collage
+import io.github.aristidisg.ensemble.ui.common.coverLineText
+import io.github.aristidisg.ensemble.ui.common.techniqueName
+import io.github.aristidisg.ensemble.ui.common.tipText
+import io.github.aristidisg.ensemble.ui.theme.LocalEnsembleColors
+import androidx.compose.material3.FilterChip
+import androidx.compose.ui.text.style.TextOverflow
 import io.github.aristidisg.ensemble.ui.common.SectionTitle
 import io.github.aristidisg.ensemble.ui.nav.LaundryRoute
 import io.github.aristidisg.ensemble.ui.nav.OutfitDetailRoute
@@ -62,8 +68,11 @@ fun PlanScreen(nav: NavHostController, vm: PlanViewModel = hiltViewModel()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 12.dp)) {
             Text(stringResource(R.string.tab_plan), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
             if (s.planning) CircularProgressIndicator(Modifier.width(24.dp).height(24.dp))
-            else Button(onClick = vm::autoPlan) { Text(stringResource(R.string.auto_plan)) }
+            else Button(onClick = { vm.autoPlan() }) {
+                Text(stringResource(if (s.days.any { it.plan?.pieces?.isNotEmpty() == true }) R.string.replan_week else R.string.auto_plan))
+            }
         }
+        FilterChip(selected = s.vogue, onClick = { vm.setVogue(!s.vogue) }, label = { Text(stringResource(R.string.vogue_week)) })
         val scores = s.days.mapNotNull { it.plan?.score }
         if (scores.isNotEmpty()) Text(stringResource(R.string.plan_score, (scores.average() * 100).roundToInt()), style = MaterialTheme.typography.labelLarge)
         if (s.replanned) Text(stringResource(R.string.replanned), style = MaterialTheme.typography.bodySmall, modifier = Modifier.clickable { vm.dismissReplanned() })
@@ -116,9 +125,13 @@ private fun DayRow(d: PlanDay, s: PlanState, vm: PlanViewModel, nav: NavHostCont
                 }
             }
             val p = d.plan
-            if (p != null && p.pieces.isNotEmpty()) {
-                Collage(p.pieces.mapNotNull { x -> s.items[x.itemId]?.let { it to x.slot } },
-                    Modifier.weight(1f).height(110.dp).clickable { nav.navigate(OutfitDetailRoute(PiecesArg.encode(p.pieces), p.scenarioId, d.epochDay)) })
+            if (p != null && p.pieces.isNotEmpty()) Column(Modifier.weight(1f).clickable { nav.navigate(OutfitDetailRoute(PiecesArg.encode(p.pieces), p.scenarioId, d.epochDay)) }) {
+                Collage(p.pieces.mapNotNull { x -> s.items[x.itemId]?.let { it to x.slot } }, Modifier.fillMaxWidth().height(110.dp))
+                d.scored?.let { o ->
+                    Text(techniqueName(o.technique), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                    val note = o.cover?.notes?.firstOrNull()?.let { coverLineText(it) } ?: o.tips.firstOrNull()?.let { tipText(it) }
+                    if (note != null) Text("— $note", style = MaterialTheme.typography.labelSmall, color = LocalEnsembleColors.current.accent, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             } else Text(stringResource(R.string.unplanned), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
             Column {
                 if (p != null) IconButton(onClick = { vm.toggleLock(d.epochDay) }) {

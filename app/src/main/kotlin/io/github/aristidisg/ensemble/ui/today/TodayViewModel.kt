@@ -18,6 +18,7 @@ import io.github.aristidisg.ensemble.engine.DeckOptions
 import io.github.aristidisg.ensemble.engine.EngineContext
 import io.github.aristidisg.ensemble.model.ColorFamily
 import io.github.aristidisg.ensemble.model.Mood
+import io.github.aristidisg.ensemble.engine.tables.Issue
 import io.github.aristidisg.ensemble.engine.rules.ScoredOutfit
 import io.github.aristidisg.ensemble.model.Item
 import io.github.aristidisg.ensemble.model.OutfitPiece
@@ -69,8 +70,9 @@ data class TodayState(
     /** Today's colour to build around (not saved) and the families in the wardrobe to choose from. */
     val accent: ColorFamily? = null,
     val accentChoices: List<ColorFamily> = emptyList(),
-    /** Vogue stylist: a short deck of cover looks. */
+    /** Vogue stylist: a short deck of cover looks, all on one [issue] (theme). */
     val vogue: Boolean = false,
+    val issue: Issue? = null,
 )
 
 @HiltViewModel
@@ -211,7 +213,7 @@ class TodayViewModel @Inject constructor(
             // Colours you could build the day around: those of your available clothes, most common first.
             val choices = c.items.values.filter { it.isAvailable && it.primarySlot.isCore }.mapNotNull { it.primaryColor?.family }
                 .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
-            _state.update { it.copy(weather = w, cards = deck.cards, loading = false, whyNotFor = null, accentChoices = choices) }
+            _state.update { it.copy(weather = w, cards = deck.cards, loading = false, whyNotFor = null, accentChoices = choices, issue = deck.issue) }
             if (s.epochDay == time.today() && regenerate == 0) deck.cards.firstOrNull()?.let { top ->
                 WidgetState.save(app, top, c.items, w.window, sc.name)
             }

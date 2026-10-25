@@ -182,6 +182,11 @@ object DeckPicks {
         return emptyList()
     }
 
+    /** Vogue stylist: the best cover look that breaks a classic rule on purpose (fresh ones first). */
+    fun ruleBreak(cands: List<ScoredOutfit>, ctx: EngineContext): List<ScoredOutfit> =
+        listOfNotNull(cands.filter { it.cover?.ruleBreak != null }
+            .maxByOrNull { it.total - if (DeckBuilder.coreSignature(it) in ctx.shownOutfits) SHOWN_COST else 0.0 })
+
     /** Score a signature card gives up to avoid an outfit already shown. */
     const val SHOWN_COST = 0.2
 }

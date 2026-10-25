@@ -71,21 +71,25 @@ class PreferenceSnapshot(
         fun of(
             stats: PreferenceStats, scenarioId: String, season: Season, today: Long,
             cfg: LearningConfig = LearningConfig(), trustMyTaste: Double = 0.18,
+            /** Vogue stylist decks: editorial taste leads, everyday taste fills in. */
+            editorial: Boolean = false,
         ): PreferenceSnapshot {
-            val scn = "SCN:$scenarioId"; val sea = "SEASON:${season.name}"
+            val scn = "SCN:$scenarioId"; val sea = "SEASON:${season.name}"; val ed = Learning.EDITORIAL
             val perFeature = HashMap<String, HashMap<String, Pair<Double, Double>>>()
             for (st in stats.stats.values) {
-                if (st.contextKey != "GLOBAL" && st.contextKey != scn && st.contextKey != sea) continue
+                if (st.contextKey != "GLOBAL" && st.contextKey != scn && st.contextKey != sea && !(editorial && st.contextKey == ed)) continue
                 val d = Learning.decay((today - st.lastUpdatedEpochDay).toDouble(), cfg.halfLifeDays)
                 perFeature.getOrPut(st.featureKey) { HashMap() }[st.contextKey] = st.pos * d to st.neg * d
             }
             val values = perFeature.mapValues { (_, ctxs) ->
-                val parts = listOf(scn to 0.5, "GLOBAL" to 0.3, sea to 0.2).mapNotNull { (k, w) -> ctxs[k]?.let { Triple(it.first, it.second, w) } }
+                val weights = if (editorial) listOf(ed to 0.6, "GLOBAL" to 0.25, scn to 0.15) else listOf(scn to 0.5, "GLOBAL" to 0.3, sea to 0.2)
+                val parts = weights.mapNotNull { (k, w) -> ctxs[k]?.let { Triple(it.first, it.second, w) } }
                 val wsum = parts.sumOf { it.third }
                 val v = parts.sumOf { value(it.first, it.second) * it.third } / wsum
                 FeatureValue(v, parts.sumOf { it.first * it.third } / wsum, parts.sumOf { it.second * it.third } / wsum)
             }
-            val ev = stats.eventWeight * Learning.decay((today - stats.lastEventDay).toDouble(), cfg.halfLifeDays)
+            val everyday = stats.eventWeight * Learning.decay((today - stats.lastEventDay).toDouble(), cfg.halfLifeDays)
+            val ev = if (!editorial) everyday else maxOf(everyday, stats.editorialWeight * Learning.decay((today - stats.lastEditorialDay).toDouble(), cfg.halfLifeDays))
             return PreferenceSnapshot(
                 values, stats.thermalOffset, stats.formalityOffset, stats.boldnessDelta, stats.rotationExtra,
                 stats.hiddenItems, stats.hiddenOutfits, stats.blocked, stats.comfortPenalty, ramp(ev, trustMyTaste),

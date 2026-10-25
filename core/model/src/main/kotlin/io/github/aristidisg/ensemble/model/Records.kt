@@ -32,6 +32,8 @@ data class ContextSnapshot(
     val weekday: Int,
     val feelsMin: Double,
     val feelsMax: Double,
+    /** Feedback on a Vogue stylist cover look: trains the editorial taste only, never the everyday deck. */
+    val editorial: Boolean = false,
 )
 
 @Serializable
